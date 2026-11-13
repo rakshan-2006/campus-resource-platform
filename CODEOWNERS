@@ -1,0 +1,17 @@
+# Code Owners definition for DBMS Project
+# Person A is Main Developer (75% foundation & core features)
+# Person B is Secondary Developer (Admin resources, maintenance, analytics, demo-conflict)
+
+# Default: Person A owns the core foundation, database schema, auth, faculty flows, booking engine
+* @person-a
+
+# Person B Owned Feature Areas:
+/src/app/admin/resources/ @person-b
+/src/app/admin/maintenance/ @person-b
+/src/app/admin/analytics/ @person-b
+/src/app/api/admin/resources/ @person-b
+/src/app/api/admin/maintenance/ @person-b
+/src/app/api/admin/analytics/ @person-b
+/db/demo-data.sql @person-b
+/scripts/demo-conflict.sql @person-b
+/docs/ADMIN_FEATURES.md @person-b
