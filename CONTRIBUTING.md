@@ -27,3 +27,4 @@ This project is developed collaboratively by **Person A** (Main Developer) and *
 4. All code must pass `npm run lint` and `npm run typecheck` before merging.
 5. Code touching multiple PostgreSQL tables must use `withTransaction()`.
 6. Parameterized queries are mandatory for all SQL queries (`$1, $2, ...`).
+   
