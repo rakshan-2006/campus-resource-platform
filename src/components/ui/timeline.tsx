@@ -5,7 +5,7 @@ export interface TimelineSlot {
   title: string;
   startTime: string; // YYYY-MM-DD HH:mm or HH:mm
   endTime: string;   // YYYY-MM-DD HH:mm or HH:mm
-  status: "CONFIRMED" | "MAINTENANCE" | "PENDING";
+  status: "CONFIRMED" | "MAINTENANCE" | "PENDING" | "CANCELLED";
   subtitle?: string;
 }
 

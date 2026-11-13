@@ -73,6 +73,7 @@ export interface BookingRequest {
   resource_type_name?: string;
   preferred_resource_id: number | null;
   preferred_resource_name?: string | null;
+  preferred_resource_code?: string | null;
   title: string;
   description: string | null;
   start_time: string; // YYYY-MM-DD HH:mm
@@ -97,9 +98,11 @@ export interface Booking {
   resource_id: number;
   resource_code?: string;
   resource_name?: string;
+  resource_location?: string;
   booked_by_user_id: number;
   faculty_name?: string;
   faculty_email?: string;
+  department_name?: string;
   start_time: string; // YYYY-MM-DD HH:mm
   end_time: string;   // YYYY-MM-DD HH:mm
   status: BookingStatus;
