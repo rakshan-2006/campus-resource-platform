@@ -1,5 +1,4 @@
-// scripts/verify-person-b.ts
-// Automated end-to-end acceptance audit for Person B's deliverables
+// Verify database behavior behind the admin catalog, maintenance, and analytics.
 
 import { query } from "../src/lib/db";
 import { getProfilesCollection } from "../src/lib/mongo";
@@ -7,7 +6,7 @@ import { signSessionToken } from "../src/lib/auth";
 
 async function runAudit() {
   console.log("==================================================================");
-  console.log("  VERIFICATION AUDIT: PERSON B COLLABORATOR DELIVERABLES");
+  console.log("  ADMIN FEATURE VERIFICATION");
   console.log("==================================================================\n");
 
   // Generate tokens for test requests
@@ -171,7 +170,7 @@ async function runAudit() {
   console.log(`  ✓ v_peak_hours rows: ${peakRows.rows[0].cnt} (All campus operating hours covered)`);
 
   console.log("\n==================================================================");
-  console.log("✓ ALL PERSON B FUNCTIONAL & ARCHITECTURAL CHECKS PASSED 100%!");
+  console.log("✓ ADMIN DATABASE CHECKS PASSED");
   console.log("==================================================================\n");
 }
 

@@ -2,7 +2,6 @@
 -- CAMPUS RESOURCE ALLOCATION & CONFLICT DETECTION PLATFORM
 -- scripts/demo-conflict.sql
 -- Demonstration Script: Intentional Overlapping Booking Conflict
--- OWNER: Person B
 -- ============================================================================
 -- Purpose:
 -- This script demonstrates that PostgreSQL engine-level GiST exclusion constraint
