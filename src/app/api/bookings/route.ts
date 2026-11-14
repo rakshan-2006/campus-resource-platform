@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
 
     if (user.role === "FACULTY") {
       params.push(user.id);
-      sql += ` AND b.booked_by_user_id = ${params.length}`;
+      sql += ` AND b.booked_by_user_id = $${params.length}`;
     }
 
     if (status && status !== "ALL") {
