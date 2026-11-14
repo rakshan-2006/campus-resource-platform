@@ -88,21 +88,29 @@ async function runTests() {
     // TEST 4: sp_approve_request Stored Procedure
     // ------------------------------------------------------------------------
     console.log("\nTEST 4: sp_approve_request atomic approval");
-    // Admin 1 approves Request 4 (LH-101 for workshop)
-    await client.query("CALL sp_approve_request(4, 1, 1)");
+    // Create dedicated test request
+    const testReqRes = await client.query(
+      `INSERT INTO booking_request (user_id, resource_type_id, preferred_resource_id, title, start_time, end_time, expected_capacity, status)
+       VALUES (2, 1, 1, 'Approval Test Session', '2027-03-01 13:00:00'::TIMESTAMP, '2027-03-01 15:00:00'::TIMESTAMP, 45, 'PENDING')
+       RETURNING id`
+    );
+    const testReqId = testReqRes.rows[0].id;
+
+    // Admin 1 approves test request for LH-101
+    await client.query(`CALL sp_approve_request(${testReqId}, 1, 1)`);
     const verifyBooking = await client.query(
-      "SELECT id, request_id, resource_id, status FROM booking WHERE request_id = 4"
+      `SELECT id, request_id, resource_id, status FROM booking WHERE request_id = ${testReqId}`
     );
     if (verifyBooking.rows.length === 0 || verifyBooking.rows[0].status !== "CONFIRMED") {
       throw new Error("FAILED: Stored procedure did not create confirmed booking");
     }
-    console.log(`  ✓ Successfully approved request 4, created confirmed booking ID ${verifyBooking.rows[0].id}`);
+    console.log(`  ✓ Successfully approved request ${testReqId}, created confirmed booking ID ${verifyBooking.rows[0].id}`);
 
     // Test conflict prevention: Attempt to approve another request for the same slot
     // Create a temporary conflicting request
     const tempReqRes = await client.query(
       `INSERT INTO booking_request (user_id, resource_type_id, preferred_resource_id, title, start_time, end_time, expected_capacity, status)
-       VALUES (3, 1, 1, 'Conflicting Session', '2026-11-20 13:30:00'::TIMESTAMP, '2026-11-20 14:30:00'::TIMESTAMP, 30, 'PENDING')
+       VALUES (3, 1, 1, 'Conflicting Session', '2027-03-01 13:30:00'::TIMESTAMP, '2027-03-01 14:30:00'::TIMESTAMP, 30, 'PENDING')
        RETURNING id`
     );
     const tempReqId = tempReqRes.rows[0].id;
@@ -150,14 +158,18 @@ async function runTests() {
     // TEST 6: Request Cancellation Trigger trg_request_cancelled
     // ------------------------------------------------------------------------
     console.log("\nTEST 6: Request Cancellation Cascade Trigger (trg_request_cancelled)");
-    // Request 4 was approved in Test 4 and has a confirmed booking
-    await client.query("UPDATE booking_request SET status = 'CANCELLED' WHERE id = 4");
-    const checkBookingCancel = await client.query("SELECT status FROM booking WHERE request_id = 4");
+    // testReqId was approved in Test 4 and has a confirmed booking
+    await client.query(`UPDATE booking_request SET status = 'CANCELLED' WHERE id = ${testReqId}`);
+    const checkBookingCancel = await client.query(`SELECT status FROM booking WHERE request_id = ${testReqId}`);
     console.log(`  Booking status after request cancelled: ${checkBookingCancel.rows[0].status}`);
     if (checkBookingCancel.rows[0].status !== "CANCELLED") {
       throw new Error("FAILED: trg_request_cancelled did not cascade cancellation to booking");
     }
     console.log("  ✓ Cancellation cascade verified.");
+
+    // Clean up test request and booking
+    await client.query(`DELETE FROM booking WHERE request_id = ${testReqId}`);
+    await client.query(`DELETE FROM booking_request WHERE id = ${testReqId}`);
 
     // ------------------------------------------------------------------------
     // TEST 7: Row-Level Security (RLS) Isolation
@@ -205,7 +217,11 @@ async function runTests() {
   }
 }
 
-runTests().catch((err) => {
-  console.error("Test execution failed:", err);
-  process.exit(1);
-});
+runTests()
+  .then(() => {
+    process.exit(0);
+  })
+  .catch((err) => {
+    console.error("Test execution failed:", err);
+    process.exit(1);
+  });

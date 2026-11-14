@@ -71,6 +71,6 @@ pie title Project Effort Breakdown
 | Milestone 1 | `m1-api` | Core database functions/procedures/triggers, RLS, all A-owned API routes, integration tests | Person A |
 | Milestone 2 | `m2-pages` | Real-time interactive UI pages (catalog, recommendation wizard, requests, bookings, admin triage) | Person A |
 | Milestone 3 | `m3-submission` | End-to-end verification, test plan execution, README and submission packaging | Person A |
-| PR #1 (Pending) | `feat-admin-resources` | Admin resource CRUD, type/facility management, MongoDB profile editor | Person B |
-| PR #2 (Pending) | `feat-admin-maintenance`| Admin maintenance scheduling UI and conflict alerts | Person B |
-| PR #3 (Pending) | `feat-admin-analytics` | Admin utilization charts and peak hours visual dashboard | Person B |
+| PR #1 (Merged) | Commit `6da462c` | Admin resource CRUD, type/facility management, MongoDB profile editor (`/admin/resources`) | Person B (`rajatkooge5-learn`) |
+| PR #2 (Merged) | Commit `10a8e45` | Admin maintenance scheduling UI, booking conflict check, trigger sync (`/admin/maintenance`) | Person B (`rajatkooge5-learn`) |
+| PR #3 (Merged) | Commit `9f36ed5` | Admin analytics dashboard, Recharts visualizations, `db/demo-data.sql`, `scripts/demo-conflict.sql` | Person B (`rajatkooge5-learn`) |

@@ -58,7 +58,11 @@ async function runIntegrationTests() {
   console.log("=======================================================\n");
 }
 
-runIntegrationTests().catch((err) => {
-  console.error("Integration test failed:", err);
-  process.exit(1);
-});
+runIntegrationTests()
+  .then(() => {
+    process.exit(0);
+  })
+  .catch((err) => {
+    console.error("Integration test failed:", err);
+    process.exit(1);
+  });
