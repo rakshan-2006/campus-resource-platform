@@ -1,7 +1,6 @@
 -- ============================================================================
 -- CAMPUS RESOURCE ALLOCATION & CONFLICT DETECTION PLATFORM
 -- db/demo-data.sql
--- OWNER: Person B (Admin Features, Analytics & Demo Scenarios)
 -- Purpose: Deterministic supplemental demo data for the last 28 weekdays.
 --          Idempotent: uses ON CONFLICT DO NOTHING on booking/booking_request rows.
 --          Seed resource IDs 1-8 are assumed to already exist (from db/seed.sql).

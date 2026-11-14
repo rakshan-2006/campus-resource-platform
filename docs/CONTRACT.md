@@ -1,14 +1,13 @@
-# Integration Contract for Person B
+# Integration Contract
 
 ## Campus Resource Allocation & Conflict Detection Platform
 
-This document details the exact API specifications, TypeScript interfaces, database access patterns, UI kit guidelines, and error contracts provided by Person A for Person B to build their assigned Admin features.
+This document describes the shared API, TypeScript, database, UI, and error-handling conventions for the admin features.
 
 ---
 
-## 1. Ownership & Scope Boundaries
+## 1. Admin Feature Paths
 
-### Person B Owned Routes & Directories:
 - **Pages**:
   - `/src/app/admin/resources/` (Admin Resource CRUD, Types, Facilities & Mongo Profiles)
   - `/src/app/admin/maintenance/` (Admin Maintenance Scheduling & Management)
@@ -20,10 +19,7 @@ This document details the exact API specifications, TypeScript interfaces, datab
 - **Artifacts**:
   - `db/demo-data.sql` (Demo conflict datasets)
   - `scripts/demo-conflict.sql` (Demonstration script for concurrent approvals / conflict detection)
-  - `docs/ADMIN_FEATURES.md` (Person B feature documentation)
-
-> [!CAUTION]
-> Person B must NOT modify files owned by Person A (auth engine, `db/schema.sql`, faculty request flows, core booking engine, shell layout).
+  - `docs/ADMIN_FEATURES.md` (admin feature documentation)
 
 ---
 
@@ -215,7 +211,7 @@ export interface ResourceProfileDocument {
 
 ## 5. UI Kit Components
 
-Person A provides common design system components in `src/components/ui/`:
+Shared design system components live in `src/components/ui/`:
 - `Button`: Primary, secondary, outline, danger variants with loading states.
 - `Badge`: Status badges (`AVAILABLE`, `MAINTENANCE`, `PENDING`, `APPROVED`, etc.).
 - `Input`, `Select`, `Textarea`: Standard accessible form controls.

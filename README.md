@@ -1,8 +1,12 @@
 # Campus Resource Allocation & Conflict Detection Platform
 
-**Course**: Database Management Systems (DBMS) Mini-Project  
-**Author**: Person A (Main Developer — Foundation, Core Relational Schema, Auth, APIs & UI)  
-**Collaborator**: Person B (Assigned Admin Feature Extensions via PRs)  
+**Course**: Database Management Systems (DBMS) Mini-Project
+
+**Project team**
+
+- Rakshan R (PES1UG24CS365)
+- Rajat Kooge (PES1UG24CS362)
+
 **Technology Stack**: Next.js 15 (App Router), TypeScript, Tailwind CSS, PostgreSQL 16 (`btree_gist`), MongoDB 7, `pg`, official `mongodb` driver, Zod, bcryptjs, jose, Recharts, lucide-react.
 
 ---
@@ -11,15 +15,15 @@
 
 ```mermaid
 graph TD
-    subgraph Client Layer
+    subgraph client["Client Layer"]
         Browser["Next.js 15 Client UI<br/>(Dense Institutional Dashboard, Catalog, Timeline)"]
     end
 
-    subgraph Server Layer
+    subgraph server["Server Layer"]
         NextServer["Next.js App Router API Routes<br/>(JWT Cookie Auth, Role Gates, Parameterized Queries)"]
     end
 
-    subgraph Relational Database [PostgreSQL 16 Engine - Single Source of Truth]
+    subgraph relational["PostgreSQL 16 - Booking System of Record"]
         PG_Tables[("Core Relational Tables<br/>users, resource, booking, request, maintenance")]
         PG_GIST["GiST Exclusion Constraint<br/>exclude_overlapping_confirmed_bookings"]
         PG_Procs["Stored Procedures & Functions<br/>sp_approve_request, fn_recommend_resources, fn_is_available"]
@@ -27,13 +31,13 @@ graph TD
         PG_RLS["Row Level Security (RLS)<br/>campus_faculty & campus_admin"]
     end
 
-    subgraph Document Database [MongoDB 7]
+    subgraph document["MongoDB 7"]
         Mongo_Coll[("campus_resource_profiles<br/>Polymorphic Hardware & Software Specs")]
     end
 
     Browser <-->|HTTP / JSON Envelope| NextServer
-    NextServer <-->|pg Connection Pool (ACID Transactions)| PG_Tables
-    NextServer -.->|mongodb Official Driver (Advisory Specs)| Mongo_Coll
+    NextServer <-->|"pg connection pool (ACID transactions)"| PG_Tables
+    NextServer -.->|"MongoDB driver (extended specifications)"| Mongo_Coll
     PG_Tables --- PG_GIST
     PG_Tables --- PG_Procs
     PG_Tables --- PG_Trigs
@@ -168,4 +172,4 @@ npm run build
 1. **Why PostgreSQL is authoritative**: All reservation logic involves serializable concurrency and referential integrity. PostgreSQL guarantees zero double-bookings via its GiST exclusion constraint and row-level locks in `sp_approve_request`.
 2. **Why MongoDB is limited to flexible profiles**: Hardware configurations (CPUs, RAM, 20+ software packages) and auditorium stage setups are semi-structured and vary wildly. MongoDB's document model and multikey array indexing handle this without polluting relational tables.
 3. **The Conflict Rule**: Overlapping intervals are defined as `new_start < existing_end AND new_end > existing_start`.
-4. **Contributions**: Person A built the foundation (75%), database schema, auth, APIs, recommendation engine, and core pages. Person B extends the platform via modular admin pull requests documented in `docs/CONTRACT.md`.
+4. **Contributions**: Rakshan R built the foundation, database schema, authentication, core APIs, recommendation engine, and core user flows. Rajat Kooge built admin resource management, maintenance scheduling, and analytics. See the [implementation history](docs/CONTRIBUTIONS.md) for the related pull requests.
