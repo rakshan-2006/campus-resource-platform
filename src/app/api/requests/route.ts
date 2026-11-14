@@ -1,7 +1,7 @@
 // src/app/api/requests/route.ts
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { query, withTransaction } from "@/lib/db";
+import { queryAsUser, withUserContext } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { apiSuccess, apiError } from "@/lib/api-response";
 
@@ -89,7 +89,7 @@ export async function GET(req: NextRequest) {
 
     sql += ` GROUP BY br.id, u.id, d.id, rt.id, r.id ORDER BY br.created_at DESC`;
 
-    const res = await query(sql, params);
+    const res = await queryAsUser(user, sql, params);
     return apiSuccess(res.rows);
   } catch (error) {
     return apiError(error);
@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
     const parsed = createRequestSchema.parse(body);
 
     // Dedicated-client transaction for multi-table insertion
-    const createdRequest = await withTransaction(async (client) => {
+    const createdRequest = await withUserContext(user.id, user.role, async (client) => {
       const reqRes = await client.query(
         `INSERT INTO booking_request (
           user_id,

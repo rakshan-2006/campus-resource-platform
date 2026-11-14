@@ -55,13 +55,14 @@ graph TD
 ### Quick Start
 ```bash
 # 1. Clone repository and navigate to root
-cd "DBMS Project"
+git clone https://github.com/rakshan-2006/campus-resource-platform.git
+cd campus-resource-platform
 
 # 2. Install all dependencies
-npm install
+npm ci
 
 # 3. Start PostgreSQL and MongoDB (via Docker Compose)
-docker compose up -d
+docker compose up -d --wait
 
 # 4. Run automated database setup (DDL migration, relational seed, Mongo validation & seed)
 npm run db:setup
@@ -71,6 +72,12 @@ npm run dev
 ```
 
 Open your browser at **`http://localhost:3000`**.
+
+`db:setup` resets the demo data. To upgrade a database created by the previous version and keep its rows, back it up and run `npm run db:migrate -- --upgrade-level-3` instead. Restart the app after upgrading.
+
+Booking, request, approval and dashboard queries select a PostgreSQL role for
+each authenticated transaction. Faculty can access their own records and see
+anonymous occupancy on shared timelines.
 
 ---
 
@@ -85,7 +92,7 @@ Three deterministic accounts are pre-seeded in PostgreSQL:
 | **FACULTY** | Dr. Claude Shannon | `faculty2@campus.edu` | `Faculty@123` | Electronics & Communication Engineering |
 
 > [!NOTE]
-> The login screen at `/login` provides one-click prefill buttons for all three accounts for quick demonstration and testing.
+> The development server displays one-click prefill buttons. Production blocks the three seeded demo accounts. Before running a production server, provision real accounts with bcrypt password hashes and configure a unique random `JWT_SECRET` of at least 32 characters. Generate one with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`. The supplied Compose setup is for local use and binds both database ports to loopback.
 
 ---
 

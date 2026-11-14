@@ -77,29 +77,19 @@ export async function withUserContext<T>(
   role: "ADMIN" | "FACULTY",
   callback: (client: PoolClient) => Promise<T>
 ): Promise<T> {
-  const client = await primaryPool.connect();
-  try {
-    await client.query("BEGIN");
+  return withTransaction(async (client) => {
+    await client.query(role === "FACULTY" ? "SET LOCAL ROLE campus_faculty" : "SET LOCAL ROLE campus_admin");
+    await client.query("SELECT set_config('app.current_user_id', $1, true)", [String(userId)]);
+    return callback(client);
+  });
+}
 
-    // Set transaction-local session context safely
-    await client.query("SELECT fn_set_current_user_id($1)", [userId]);
-
-    // If faculty, optionally switch session role to campus_faculty for RLS enforcement
-    if (role === "FACULTY") {
-      await client.query("SET LOCAL ROLE campus_faculty");
-    } else {
-      await client.query("SET LOCAL ROLE campus_admin");
-    }
-
-    const result = await callback(client);
-    await client.query("COMMIT");
-    return result;
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
-  } finally {
-    client.release();
-  }
+export function queryAsUser<T extends QueryResultRow = any>(
+  user: { id: number; role: "ADMIN" | "FACULTY" },
+  text: string,
+  params?: unknown[],
+): Promise<QueryResult<T>> {
+  return withUserContext(user.id, user.role, (client) => client.query<T>(text, params));
 }
 
 /**

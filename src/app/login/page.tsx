@@ -103,7 +103,7 @@ export default function LoginPage() {
           </form>
 
           {/* Quick-fill Demo Accounts */}
-          <div className="mt-6 pt-5 border-t border-slate-200">
+          {process.env.NODE_ENV !== "production" && <div className="mt-6 pt-5 border-t border-slate-200">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
               Demo Test Accounts (One-Click Prefill)
             </p>
@@ -144,7 +144,7 @@ export default function LoginPage() {
                 <span className="text-[10px] bg-blue-100 text-blue-700 font-mono px-1.5 py-0.5 rounded">FACULTY (EC)</span>
               </button>
             </div>
-          </div>
+          </div>}
         </div>
 
         <div className="text-center text-[11px] text-slate-500">

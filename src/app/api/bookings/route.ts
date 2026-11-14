@@ -1,6 +1,6 @@
 // src/app/api/bookings/route.ts
 import { NextRequest } from "next/server";
-import { query } from "@/lib/db";
+import { queryAsUser } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { apiSuccess, apiError } from "@/lib/api-response";
 
@@ -16,6 +16,20 @@ export async function GET(req: NextRequest) {
     const startDate = searchParams.get("start_date");
     const endDate = searchParams.get("end_date");
     const status = searchParams.get("status") || "CONFIRMED";
+
+    if (user.role === "FACULTY" && searchParams.get("view") === "schedule" && startDate && endDate) {
+      // Shared timeline shows room occupancy without other users' request or account details.
+      const slots = await queryAsUser(user, `
+        SELECT id, resource_id, start_time, end_time, status
+        FROM v_confirmed_occupancy
+        WHERE status = 'CONFIRMED'
+          AND start_time < $2::date + INTERVAL '1 day'
+          AND end_time > $1::date
+          AND ($3::int IS NULL OR resource_id = $3::int)
+        ORDER BY start_time
+      `, [startDate, endDate, resourceId]);
+      return apiSuccess(slots.rows);
+    }
 
     let sql = `
       SELECT 
@@ -45,6 +59,11 @@ export async function GET(req: NextRequest) {
 
     const params: any[] = [];
 
+    if (user.role === "FACULTY") {
+      params.push(user.id);
+      sql += ` AND b.booked_by_user_id = ${params.length}`;
+    }
+
     if (status && status !== "ALL") {
       params.push(status);
       sql += ` AND b.status = $${params.length}`;
@@ -67,7 +86,7 @@ export async function GET(req: NextRequest) {
 
     sql += ` ORDER BY b.start_time ASC`;
 
-    const res = await query(sql, params);
+    const res = await queryAsUser(user, sql, params);
     return apiSuccess(res.rows);
   } catch (error) {
     return apiError(error);

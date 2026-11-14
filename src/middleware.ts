@@ -4,10 +4,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
-
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || "campus_secret_key_minimum_32_characters_for_hs256_jwt_token!"
-);
+import { sessionSecret } from "@/lib/session-config";
 
 const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/health"];
 
@@ -30,7 +27,7 @@ export async function middleware(request: NextRequest) {
     // If user is already authenticated and visits /login, redirect to /dashboard
     if (token && pathname === "/login") {
       try {
-        await jwtVerify(token, JWT_SECRET);
+        await jwtVerify(token, sessionSecret(), { algorithms: ["HS256"] });
         return NextResponse.redirect(new URL("/dashboard", request.url));
       } catch {
         // Invalid token, proceed to login
@@ -51,11 +48,11 @@ export async function middleware(request: NextRequest) {
   }
 
   try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
+    const { payload } = await jwtVerify(token, sessionSecret(), { algorithms: ["HS256"] });
     const userRole = (payload as any).role;
 
     // Admin-only path guard
-    if (pathname.startsWith("/admin") && userRole !== "ADMIN") {
+    if ((pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) && userRole !== "ADMIN") {
       if (pathname.startsWith("/api/admin")) {
         return NextResponse.json(
           { error: { message: "Administrator role required", code: "FORBIDDEN" } },

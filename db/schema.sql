@@ -23,6 +23,7 @@ $$;
 DROP VIEW IF EXISTS v_resource_utilization CASCADE;
 DROP VIEW IF EXISTS v_peak_hours CASCADE;
 DROP VIEW IF EXISTS v_pending_requests CASCADE;
+DROP VIEW IF EXISTS v_confirmed_occupancy CASCADE;
 
 DROP TRIGGER IF EXISTS trg_booking_validate ON booking CASCADE;
 DROP TRIGGER IF EXISTS trg_maintenance_status ON maintenance CASCADE;
@@ -246,9 +247,10 @@ RETURNS VOID AS $$
 BEGIN
     PERFORM set_config('app.current_user_id', p_user_id::TEXT, true);
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql;
 
 -- 5.2 fn_is_available
+-- BEGIN AVAILABILITY RULES
 -- Checks if resource is available: status=AVAILABLE, no overlapping confirmed booking, no overlapping scheduled/in-progress maintenance
 -- Overlap rule: new_start < existing_end AND new_end > existing_start
 CREATE OR REPLACE FUNCTION fn_is_available(
@@ -264,14 +266,14 @@ DECLARE
     v_has_maintenance_conflict BOOLEAN;
 BEGIN
     -- Check resource existence and general status
-    SELECT status INTO v_status FROM resource WHERE id = p_resource_id;
+    SELECT status INTO v_status FROM public.resource WHERE id = p_resource_id;
     IF v_status IS NULL OR v_status = 'UNAVAILABLE' THEN
         RETURN FALSE;
     END IF;
 
     -- Check overlapping confirmed bookings
     SELECT EXISTS (
-        SELECT 1 FROM booking
+        SELECT 1 FROM public.booking
         WHERE resource_id = p_resource_id
           AND status = 'CONFIRMED'
           AND (p_exclude_booking_id IS NULL OR id != p_exclude_booking_id)
@@ -284,7 +286,7 @@ BEGIN
 
     -- Check overlapping maintenance (SCHEDULED or IN_PROGRESS)
     SELECT EXISTS (
-        SELECT 1 FROM maintenance
+        SELECT 1 FROM public.maintenance
         WHERE resource_id = p_resource_id
           AND status IN ('SCHEDULED', 'IN_PROGRESS')
           AND p_start < end_time AND p_end > start_time
@@ -296,7 +298,9 @@ BEGIN
 
     RETURN TRUE;
 END;
-$$ LANGUAGE plpgsql STABLE;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = pg_catalog, pg_temp;
+REVOKE EXECUTE ON FUNCTION fn_is_available(INT, TIMESTAMP, TIMESTAMP, INT) FROM PUBLIC;
+-- END AVAILABILITY RULES
 
 -- 5.3 fn_recommend_resources
 -- Hard filters available resources by requested type and capacity, excludes conflicts/maintenance,
@@ -419,6 +423,26 @@ END;
 $$ LANGUAGE plpgsql STABLE;
 
 -- 5.4 sp_approve_request
+-- BEGIN ALLOCATION RULES
+CREATE OR REPLACE FUNCTION fn_resource_meets_request(p_resource_id INT, p_request_id INT)
+RETURNS BOOLEAN
+LANGUAGE sql STABLE
+AS $$
+    SELECT EXISTS (
+        SELECT 1 FROM resource r
+        JOIN booking_request br ON br.id = p_request_id
+        WHERE r.id = p_resource_id
+          AND r.resource_type_id = br.resource_type_id
+          AND r.capacity >= br.expected_capacity
+          AND NOT EXISTS (
+              SELECT 1 FROM resource_request_facility req
+              LEFT JOIN resource_facility rf
+                ON rf.facility_id = req.facility_id AND rf.resource_id = r.id
+              WHERE req.request_id = br.id AND COALESCE(rf.quantity, 0) < req.min_quantity
+          )
+    );
+$$;
+
 -- Admin approves a pending request, validates admin status and pending state, locks rows,
 -- re-checks availability, sets request to APPROVED and inserts one CONFIRMED booking.
 -- A concurrent conflicting approval must leave exactly one confirmed booking.
@@ -461,10 +485,9 @@ BEGIN
     IF v_target_resource_id IS NULL THEN
         SELECT r.id INTO v_target_resource_id
         FROM resource r
-        WHERE r.resource_type_id = v_req.resource_type_id
-          AND r.capacity >= v_req.expected_capacity
+        WHERE fn_resource_meets_request(r.id, v_req.id)
           AND fn_is_available(r.id, v_req.start_time, v_req.end_time) = TRUE
-        ORDER BY r.capacity ASC
+        ORDER BY r.capacity ASC, r.id ASC
         LIMIT 1;
     END IF;
 
@@ -472,7 +495,12 @@ BEGIN
         RAISE EXCEPTION 'NO_AVAILABLE_RESOURCE: No suitable resource available for request %', p_request_id;
     END IF;
 
-    -- 4. Re-check availability under transaction lock
+    -- Serialize approvals competing for this resource and validate explicit assignments too.
+    PERFORM 1 FROM resource WHERE id = v_target_resource_id FOR UPDATE;
+    IF NOT fn_resource_meets_request(v_target_resource_id, v_req.id) THEN
+        RAISE EXCEPTION 'RESOURCE_CONFLICT: Resource % does not meet the requested type, capacity, or facility quantities', v_target_resource_id;
+    END IF;
+
     v_is_avail := fn_is_available(v_target_resource_id, v_req.start_time, v_req.end_time);
     IF NOT v_is_avail THEN
         RAISE EXCEPTION 'RESOURCE_CONFLICT: Resource % is unavailable or conflicts with another confirmed booking/maintenance during % to %',
@@ -509,6 +537,7 @@ BEGIN
 
 END;
 $$ LANGUAGE plpgsql;
+-- END ALLOCATION RULES
 
 -- ============================================================================
 -- 6. TRIGGERS
@@ -586,12 +615,13 @@ FOR EACH ROW
 EXECUTE FUNCTION fn_maintenance_status();
 
 -- 6.3 Request-cancellation trigger:
+-- BEGIN CANCELLATION FUNCTION
 -- Cancels its confirmed booking when a request is cancelled
 CREATE OR REPLACE FUNCTION fn_request_cancelled()
 RETURNS TRIGGER AS $$
 BEGIN
     IF NEW.status = 'CANCELLED' AND OLD.status != 'CANCELLED' THEN
-        UPDATE booking 
+        UPDATE public.booking
         SET status = 'CANCELLED',
             updated_at = CURRENT_TIMESTAMP
         WHERE request_id = NEW.id 
@@ -599,7 +629,9 @@ BEGIN
     END IF;
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, pg_temp;
+REVOKE EXECUTE ON FUNCTION fn_request_cancelled() FROM PUBLIC;
+-- END CANCELLATION FUNCTION
 
 CREATE TRIGGER trg_request_cancelled
 AFTER UPDATE OF status ON booking_request
@@ -708,11 +740,25 @@ ORDER BY br.created_at ASC;
 
 -- ============================================================================
 -- 8. ROW LEVEL SECURITY (RLS) & GRANTS
+-- BEGIN ACCESS RULES
 -- ============================================================================
 
 -- Enable RLS on faculty-owned tables
 ALTER TABLE booking_request ENABLE ROW LEVEL SECURITY;
 ALTER TABLE booking ENABLE ROW LEVEL SECURITY;
+ALTER TABLE resource_request_facility ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS faculty_select_own_requests ON booking_request;
+DROP POLICY IF EXISTS faculty_insert_own_requests ON booking_request;
+DROP POLICY IF EXISTS faculty_update_own_requests ON booking_request;
+DROP POLICY IF EXISTS faculty_select_confirmed_bookings ON booking;
+DROP POLICY IF EXISTS faculty_select_own_bookings ON booking;
+DROP POLICY IF EXISTS faculty_update_own_confirmed_bookings ON booking;
+DROP POLICY IF EXISTS faculty_read_request_facilities ON resource_request_facility;
+DROP POLICY IF EXISTS faculty_write_request_facilities ON resource_request_facility;
+DROP POLICY IF EXISTS admin_all_booking_requests ON booking_request;
+DROP POLICY IF EXISTS admin_all_bookings ON booking;
+DROP POLICY IF EXISTS admin_all_request_facilities ON resource_request_facility;
 
 -- 8.1 Faculty Policies for booking_request:
 -- Faculty can SELECT their own requests
@@ -729,31 +775,50 @@ FOR INSERT
 TO campus_faculty
 WITH CHECK (
     user_id = NULLIF(current_setting('app.current_user_id', true), '')::INT
+    AND status = 'PENDING'
 );
 
--- Faculty can UPDATE their own requests only if PENDING
+-- Faculty edit pending requests and can cancel their own pending or approved requests.
 CREATE POLICY faculty_update_own_requests ON booking_request
 FOR UPDATE
 TO campus_faculty
 USING (
     user_id = NULLIF(current_setting('app.current_user_id', true), '')::INT
-    AND status = 'PENDING'
+    AND status IN ('PENDING', 'APPROVED')
 )
 WITH CHECK (
     user_id = NULLIF(current_setting('app.current_user_id', true), '')::INT
+    AND status IN ('PENDING', 'CANCELLED')
 );
 
--- 8.2 Faculty Policies for booking:
--- Faculty can view all confirmed bookings (for campus schedule transparency)
-CREATE POLICY faculty_select_confirmed_bookings ON booking
+-- 8.2 Faculty see their own booking records. The schedule view exposes only occupancy.
+CREATE POLICY faculty_select_own_bookings ON booking
 FOR SELECT
 TO campus_faculty
 USING (
-    status = 'CONFIRMED' 
-    OR booked_by_user_id = NULLIF(current_setting('app.current_user_id', true), '')::INT
+    booked_by_user_id = NULLIF(current_setting('app.current_user_id', true), '')::INT
 );
 
--- Faculty cannot insert or update bookings directly (bookings are created via sp_approve_request)
+CREATE OR REPLACE VIEW v_confirmed_occupancy AS
+SELECT id, resource_id, start_time, end_time, status FROM booking WHERE status = 'CONFIRMED';
+GRANT SELECT ON v_confirmed_occupancy TO campus_faculty;
+
+CREATE POLICY faculty_update_own_confirmed_bookings ON booking
+FOR UPDATE TO campus_faculty
+USING (booked_by_user_id = NULLIF(current_setting('app.current_user_id', true), '')::INT AND status = 'CONFIRMED')
+WITH CHECK (booked_by_user_id = NULLIF(current_setting('app.current_user_id', true), '')::INT AND status = 'CONFIRMED');
+
+CREATE POLICY faculty_read_request_facilities ON resource_request_facility
+FOR SELECT TO campus_faculty
+USING (EXISTS (SELECT 1 FROM booking_request br WHERE br.id = request_id));
+
+CREATE POLICY faculty_write_request_facilities ON resource_request_facility
+FOR ALL TO campus_faculty
+USING (EXISTS (SELECT 1 FROM booking_request br WHERE br.id = request_id AND br.status = 'PENDING'))
+WITH CHECK (EXISTS (SELECT 1 FROM booking_request br WHERE br.id = request_id AND br.status = 'PENDING'));
+
+CREATE POLICY admin_all_request_facilities ON resource_request_facility
+FOR ALL TO campus_admin USING (true) WITH CHECK (true);
 
 -- 8.3 Admin Policies (Full access to all requests and bookings)
 CREATE POLICY admin_all_booking_requests ON booking_request
@@ -771,15 +836,30 @@ WITH CHECK (true);
 -- 8.4 Grants to Roles
 -- Read-only tables for faculty
 GRANT SELECT ON department, resource_type, resource, facility, resource_facility, maintenance, v_resource_utilization, v_peak_hours TO campus_faculty;
-GRANT SELECT ON users TO campus_faculty;
-GRANT SELECT, INSERT, UPDATE ON booking_request TO campus_faculty;
+REVOKE SELECT ON users FROM campus_faculty;
+GRANT SELECT (id, name, email, department_id) ON users TO campus_faculty;
+REVOKE UPDATE ON booking_request FROM campus_faculty;
+GRANT SELECT, INSERT ON booking_request TO campus_faculty;
+GRANT UPDATE (title, description, start_time, end_time, expected_capacity, status, updated_at) ON booking_request TO campus_faculty;
 GRANT SELECT ON booking TO campus_faculty;
+GRANT UPDATE (start_time, end_time, updated_at) ON booking TO campus_faculty;
 GRANT SELECT, INSERT, UPDATE, DELETE ON resource_request_facility TO campus_faculty;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO campus_faculty;
+REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM campus_faculty;
+GRANT USAGE ON booking_request_id_seq TO campus_faculty;
 GRANT EXECUTE ON FUNCTION fn_is_available, fn_recommend_resources, fn_set_current_user_id TO campus_faculty;
 
 -- Full access for admin
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO campus_admin;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO campus_admin;
+REVOKE ALL ON ALL TABLES IN SCHEMA public FROM campus_admin;
+GRANT SELECT ON department, resource_type, resource, facility, resource_facility,
+    maintenance, booking, booking_request, resource_request_facility,
+    v_resource_utilization, v_peak_hours, v_pending_requests, v_confirmed_occupancy TO campus_admin;
+GRANT SELECT (id, name, email, department_id, role, created_at) ON users TO campus_admin;
+GRANT INSERT, UPDATE, DELETE ON resource_type, resource, facility, resource_facility, maintenance TO campus_admin;
+GRANT INSERT, UPDATE ON booking_request, booking TO campus_admin;
+GRANT INSERT, UPDATE, DELETE ON resource_request_facility TO campus_admin;
+REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM campus_admin;
+GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO campus_admin;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO campus_admin;
 GRANT EXECUTE ON ALL PROCEDURES IN SCHEMA public TO campus_admin;
+REVOKE EXECUTE ON PROCEDURE sp_approve_request(INT, INT, INT) FROM PUBLIC, campus_faculty;
+-- END ACCESS RULES

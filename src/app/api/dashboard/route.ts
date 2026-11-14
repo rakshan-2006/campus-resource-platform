@@ -1,5 +1,5 @@
 // src/app/api/dashboard/route.ts
-import { query } from "@/lib/db";
+import { queryAsUser } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { apiSuccess, apiError } from "@/lib/api-response";
 
@@ -13,7 +13,7 @@ export async function GET() {
     if (user.role === "FACULTY") {
       // Faculty Dashboard: Own stats and upcoming reservations
       const [statsRes, requestsRes, bookingsRes] = await Promise.all([
-        query(
+        queryAsUser(user,
           `SELECT 
             COUNT(*) FILTER (WHERE status = 'PENDING') AS pending_requests_count,
             COUNT(*) FILTER (WHERE status = 'APPROVED') AS approved_requests_count,
@@ -22,7 +22,7 @@ export async function GET() {
            WHERE user_id = $1`,
           [user.id]
         ),
-        query(
+        queryAsUser(user,
           `SELECT br.id, br.title, br.start_time, br.end_time, br.status, br.expected_capacity,
                   rt.name AS resource_type_name, r.name AS preferred_resource_name
            FROM booking_request br
@@ -33,7 +33,7 @@ export async function GET() {
            LIMIT 5`,
           [user.id]
         ),
-        query(
+        queryAsUser(user,
           `SELECT b.id, b.start_time, b.end_time, b.status, br.title, r.code AS resource_code, r.name AS resource_name, r.location
            FROM booking b
            JOIN booking_request br ON b.request_id = br.id
@@ -55,16 +55,16 @@ export async function GET() {
 
     // Admin Dashboard: System-wide triage and analytical overview
     const [pendingRes, statsRes, utilRes, peakRes] = await Promise.all([
-      query("SELECT * FROM v_pending_requests LIMIT 10"),
-      query(`
+      queryAsUser(user, "SELECT * FROM v_pending_requests LIMIT 10"),
+      queryAsUser(user, `
         SELECT 
           (SELECT COUNT(*) FROM resource WHERE status = 'AVAILABLE') AS available_resources_count,
           (SELECT COUNT(*) FROM resource WHERE status = 'MAINTENANCE') AS maintenance_resources_count,
           (SELECT COUNT(*) FROM booking_request WHERE status = 'PENDING') AS pending_triage_count,
           (SELECT COUNT(*) FROM booking WHERE status = 'CONFIRMED' AND start_time >= CURRENT_TIMESTAMP) AS upcoming_bookings_count
       `),
-      query("SELECT * FROM v_resource_utilization ORDER BY utilization_percentage DESC LIMIT 5"),
-      query("SELECT * FROM v_peak_hours ORDER BY hour_of_day ASC"),
+      queryAsUser(user, "SELECT * FROM v_resource_utilization ORDER BY utilization_percentage DESC LIMIT 5"),
+      queryAsUser(user, "SELECT * FROM v_peak_hours ORDER BY hour_of_day ASC"),
     ]);
 
     return apiSuccess({
