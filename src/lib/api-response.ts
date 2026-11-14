@@ -139,6 +139,14 @@ export function apiError(error: unknown): NextResponse<ApiErrorPayload> {
 
   // Standard JavaScript Error
   if (error instanceof Error) {
+    for (const [prefix, status] of [["NOT_FOUND", 404], ["INVALID_STATE", 409], ["CONFLICT", 409]] as const) {
+      if (error.message.startsWith(`${prefix}: `)) {
+        return NextResponse.json(
+          { error: { message: error.message.slice(prefix.length + 2), code: prefix } },
+          { status }
+        );
+      }
+    }
     if (error.message.startsWith("UNAUTHORIZED")) {
       return NextResponse.json(
         {

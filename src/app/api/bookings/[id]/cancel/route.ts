@@ -1,6 +1,6 @@
 // src/app/api/bookings/[id]/cancel/route.ts
 import { NextRequest } from "next/server";
-import { query } from "@/lib/db";
+import { withUserContext } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { apiSuccess, apiError } from "@/lib/api-response";
 
@@ -17,34 +17,26 @@ export async function POST(
     const { id } = await params;
     const bookingId = parseInt(id);
 
-    const bookingRes = await query(
-      "SELECT booked_by_user_id, status FROM booking WHERE id = $1",
-      [bookingId]
-    );
+    return await withUserContext(user.id, user.role, async (client) => {
+      const { rows: [booking] } = await client.query(
+        "SELECT request_id, booked_by_user_id, status FROM booking WHERE id = $1",
+        [bookingId]
+      );
+      if (!booking) throw new Error("NOT_FOUND: Booking not found");
+      if (user.role === "FACULTY" && booking.booked_by_user_id !== user.id) {
+        throw new Error("FORBIDDEN: You can only cancel your own bookings");
+      }
+      if (booking.status !== "CONFIRMED") throw new Error("INVALID_STATE: Booking is already cancelled");
 
-    if (bookingRes.rows.length === 0) {
-      return apiError(new Error("NOT_FOUND: Booking not found"));
-    }
-
-    const booking = bookingRes.rows[0];
-
-    // Only booking owner or admin can cancel
-    if (user.role === "FACULTY" && booking.booked_by_user_id !== user.id) {
-      return apiError(new Error("FORBIDDEN: You can only cancel your own bookings"));
-    }
-
-    if (booking.status === "CANCELLED") {
-      return apiError(new Error("INVALID_STATE: Booking is already cancelled"));
-    }
-
-    const res = await query(
-      "UPDATE booking SET status = 'CANCELLED', updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING id, status",
-      [bookingId]
-    );
-
-    return apiSuccess({
-      message: "Booking cancelled successfully",
-      booking: res.rows[0],
+      const cancelled = await client.query(
+        "UPDATE booking_request SET status = 'CANCELLED', updated_at = CURRENT_TIMESTAMP WHERE id = $1 AND status = 'APPROVED' RETURNING id",
+        [booking.request_id]
+      );
+      if (cancelled.rowCount === 0) throw new Error("INVALID_STATE: This booking cannot be cancelled");
+      return apiSuccess({
+        message: "Booking cancelled successfully",
+        booking: { id: bookingId, status: "CANCELLED" },
+      });
     });
   } catch (error) {
     return apiError(error);

@@ -5,11 +5,9 @@ import { SignJWT, jwtVerify } from "jose";
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { User, UserRole } from "@/types";
+import { sessionSecret } from "@/lib/session-config";
 
 const COOKIE_NAME = "campus_session";
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || "campus_secret_key_minimum_32_characters_for_hs256_jwt_token!"
-);
 
 export interface SessionPayload {
   sub: string; // user id as string
@@ -44,7 +42,7 @@ export async function signSessionToken(payload: SessionPayload): Promise<string>
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("24h")
-    .sign(JWT_SECRET);
+    .sign(sessionSecret());
 }
 
 /**
@@ -52,7 +50,7 @@ export async function signSessionToken(payload: SessionPayload): Promise<string>
  */
 export async function verifySessionToken(token: string): Promise<SessionPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, JWT_SECRET, {
+    const { payload } = await jwtVerify(token, sessionSecret(), {
       algorithms: ["HS256"],
     });
     return payload as unknown as SessionPayload;

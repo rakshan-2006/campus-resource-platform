@@ -1,7 +1,7 @@
 // src/app/api/requests/[id]/route.ts
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { query, withTransaction } from "@/lib/db";
+import { queryAsUser } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { apiSuccess, apiError } from "@/lib/api-response";
 
@@ -26,7 +26,7 @@ export async function GET(
     const { id } = await params;
     const requestId = parseInt(id);
 
-    const res = await query(
+    const res = await queryAsUser(user,
       `SELECT 
         br.id,
         br.user_id,
@@ -102,7 +102,7 @@ export async function PUT(
     const body = await req.json();
     const parsed = updateRequestSchema.parse(body);
 
-    const existingRes = await query(
+    const existingRes = await queryAsUser(user,
       "SELECT user_id, status FROM booking_request WHERE id = $1",
       [requestId]
     );
@@ -149,12 +149,13 @@ export async function PUT(
     values.push(requestId);
     const updateSql = `
       UPDATE booking_request 
-      SET ${updates.join(", ")}, updated_at = CURRENT_TIMESTAMP 
-      WHERE id = $${values.length} 
+      SET ${[...updates, "updated_at = CURRENT_TIMESTAMP"].join(", ")}
+      WHERE id = $${values.length} AND status = 'PENDING'
       RETURNING *
     `;
 
-    const result = await query(updateSql, values);
+    const result = await queryAsUser(user, updateSql, values);
+    if (result.rowCount === 0) throw new Error("INVALID_STATE: Request is no longer pending");
     return apiSuccess(result.rows[0]);
   } catch (error) {
     return apiError(error);
@@ -174,7 +175,7 @@ export async function DELETE(
     const { id } = await params;
     const requestId = parseInt(id);
 
-    const existingRes = await query(
+    const existingRes = await queryAsUser(user,
       "SELECT user_id, status FROM booking_request WHERE id = $1",
       [requestId]
     );
@@ -191,11 +192,12 @@ export async function DELETE(
 
     // Update status to CANCELLED.
     // PostgreSQL Trigger trg_request_cancelled automatically updates any confirmed booking to CANCELLED!
-    const result = await query(
-      "UPDATE booking_request SET status = 'CANCELLED', updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING id, status",
+    const result = await queryAsUser(user,
+      "UPDATE booking_request SET status = 'CANCELLED', updated_at = CURRENT_TIMESTAMP WHERE id = $1 AND status IN ('PENDING', 'APPROVED') RETURNING id, status",
       [requestId]
     );
 
+    if (result.rowCount === 0) throw new Error("INVALID_STATE: Only pending or approved requests can be cancelled");
     return apiSuccess({
       message: "Request cancelled successfully",
       request: result.rows[0],

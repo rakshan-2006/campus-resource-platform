@@ -1,5 +1,7 @@
 "use client";
 
+import { campusDate } from "@/lib/campus-time";
+
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ResourceType, Facility, RecommendedResource } from "@/types";
@@ -33,7 +35,7 @@ export default function NewRequestPage() {
   const [description, setDescription] = useState("");
   const [typeId, setTypeId] = useState<string>("1");
   const [capacity, setCapacity] = useState<string>("40");
-  const [date, setDate] = useState<string>("2026-11-20");
+  const [date, setDate] = useState(campusDate);
   const [startTime, setStartTime] = useState<string>("11:00");
   const [endTime, setEndTime] = useState<string>("13:00");
   const [selectedFacilities, setSelectedFacilities] = useState<Record<number, number>>({ 1: 1 }); // default 1 Projector

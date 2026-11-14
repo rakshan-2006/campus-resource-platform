@@ -12,6 +12,7 @@ async function runAudit() {
 
   // Generate tokens for test requests
   const adminToken = await signSessionToken({
+    sub: "1",
     id: 1,
     email: "admin@campus.edu",
     name: "Ada Lovelace",
@@ -20,6 +21,7 @@ async function runAudit() {
   });
 
   const facultyToken = await signSessionToken({
+    sub: "2",
     id: 2,
     email: "faculty1@campus.edu",
     name: "Grace Hopper",
