@@ -14,7 +14,8 @@
     "mongo:seed": "node db/mongo-seed.js",
     "db:setup": "npm run db:migrate && npm run db:seed && npm run mongo:init && npm run mongo:seed",
     "test:db": "tsx scripts/test-db-features.ts",
-    "test:integration": "tsx scripts/test-integration.ts"
+    "test:integration": "tsx scripts/test-integration.ts",
+    "test:person-b": "tsx scripts/verify-person-b.ts"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
