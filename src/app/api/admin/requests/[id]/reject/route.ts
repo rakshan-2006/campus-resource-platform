@@ -41,6 +41,14 @@ export async function POST(
       return apiError(new Error("INVALID_STATE: Request not found or is no longer pending"));
     }
 
+    // Record rejection in review history
+    await query(
+      `INSERT INTO request_review_history (
+         request_id, reviewer_user_id, action, comments, created_at
+       ) VALUES ($1, $2, 'REJECTED_BY_ADMIN', $3, CURRENT_TIMESTAMP)`,
+      [requestId, user!.id, reason]
+    );
+
     return apiSuccess({
       message: "Request rejected",
       request: updateRes.rows[0],

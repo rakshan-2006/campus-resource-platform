@@ -9,7 +9,13 @@ const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || "campus_secret_key_minimum_32_characters_for_hs256_jwt_token!"
 );
 
-const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/health"];
+const PUBLIC_PATHS = [
+  "/login", 
+  "/api/auth/login", 
+  "/api/auth/register", 
+  "/api/health", 
+  "/api/metadata"
+];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

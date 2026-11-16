@@ -9,13 +9,16 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "db:migrate": "tsx scripts/db-migrate.ts",
+    "db:migrate:club": "tsx scripts/run-club-migration.ts",
     "db:seed": "tsx scripts/db-seed.ts",
     "mongo:init": "node db/mongo-init.js",
     "mongo:seed": "node db/mongo-seed.js",
     "db:setup": "npm run db:migrate && npm run db:seed && npm run mongo:init && npm run mongo:seed",
     "test:db": "tsx scripts/test-db-features.ts",
     "test:integration": "tsx scripts/test-integration.ts",
-    "test:person-b": "tsx scripts/verify-person-b.ts"
+    "test:person-b": "tsx scripts/verify-person-b.ts",
+    "test:club": "tsx scripts/test-club-workflow.ts",
+    "test:all": "npm run test:db && npm run test:person-b && npm run test:club"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

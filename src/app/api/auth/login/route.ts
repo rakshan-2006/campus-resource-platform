@@ -16,9 +16,20 @@ export async function POST(req: NextRequest) {
     const { email, password } = loginSchema.parse(body);
 
     const userRes = await query(
-      `SELECT u.id, u.email, u.password_hash, u.name, u.role, u.department_id, d.name AS department_name
+      `SELECT 
+         u.id, 
+         u.email, 
+         u.password_hash, 
+         u.name, 
+         u.role, 
+         u.verification_status,
+         u.department_id, 
+         COALESCE(d.name, 'Student Affairs & Campus Clubs') AS department_name,
+         cp.id AS club_id,
+         cp.club_name
        FROM users u
-       JOIN department d ON u.department_id = d.id
+       LEFT JOIN department d ON u.department_id = d.id
+       LEFT JOIN club_profile cp ON u.id = cp.user_id
        WHERE u.email = $1`,
       [email.toLowerCase().trim()]
     );
@@ -40,8 +51,11 @@ export async function POST(req: NextRequest) {
       email: userRow.email,
       name: userRow.name,
       role: userRow.role,
+      verification_status: userRow.verification_status || "APPROVED",
       department_id: userRow.department_id,
       department_name: userRow.department_name,
+      club_id: userRow.club_id || undefined,
+      club_name: userRow.club_name || undefined,
     };
 
     await setSessionCookie(sessionPayload);

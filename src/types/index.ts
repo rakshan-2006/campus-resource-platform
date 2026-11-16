@@ -1,15 +1,60 @@
 // Global TypeScript Type Definitions for Campus Resource Allocation Platform
 
-export type UserRole = "ADMIN" | "FACULTY";
+export type UserRole = "ADMIN" | "FACULTY" | "CLUB";
+export type VerificationStatus = "PENDING" | "APPROVED" | "REJECTED";
 
 export interface User {
   id: number;
-  department_id: number;
+  department_id?: number | null;
   department_name?: string;
   email: string;
   name: string;
   role: UserRole;
+  verification_status: VerificationStatus;
+  verified_at?: string | null;
+  club_id?: number;
+  club_name?: string;
   created_at: string;
+}
+
+export interface ClubProfile {
+  id: number;
+  user_id: number;
+  club_name: string;
+  lead_name: string | null;
+  lead_phone: string | null;
+  category: "Technical" | "Cultural" | "Sports" | "Literary" | "Social" | "Academic" | "Other";
+  description: string | null;
+  founded_year: number | null;
+  advisor?: ClubAdvisorSummary | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ClubAdvisorSummary {
+  id: number;
+  faculty_user_id: number;
+  faculty_name: string;
+  faculty_email: string;
+  faculty_department?: string;
+  status: "PENDING" | "ACCEPTED" | "DECLINED" | "REPLACED";
+  assigned_at: string;
+  responded_at?: string | null;
+  notes?: string | null;
+}
+
+export interface ClubAdvisor {
+  id: number;
+  club_id: number;
+  club_name?: string;
+  club_category?: string;
+  faculty_user_id: number;
+  faculty_name?: string;
+  faculty_email?: string;
+  status: "PENDING" | "ACCEPTED" | "DECLINED" | "REPLACED";
+  assigned_at: string;
+  responded_at?: string | null;
+  notes?: string | null;
 }
 
 export interface Department {
@@ -62,12 +107,15 @@ export interface ResourceFacilityDetail {
 }
 
 export type RequestStatus = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
+export type AdvisorReviewStatus = "NOT_APPLICABLE" | "PENDING_ADVISOR" | "ENDORSED" | "REJECTED";
+export type RequestType = "FACULTY" | "CLUB";
 
 export interface BookingRequest {
   id: number;
   user_id: number;
   faculty_name?: string;
   faculty_email?: string;
+  applicant_role?: UserRole;
   department_name?: string;
   resource_type_id: number;
   resource_type_name?: string;
@@ -80,6 +128,13 @@ export interface BookingRequest {
   end_time: string;   // YYYY-MM-DD HH:mm
   expected_capacity: number;
   status: RequestStatus;
+  request_type: RequestType;
+  club_id?: number | null;
+  club_name?: string | null;
+  advisor_review_status: AdvisorReviewStatus;
+  event_type?: string | null;
+  expected_guests?: string | null;
+  equipment_notes?: string | null;
   rejection_reason: string | null;
   created_at: string;
   updated_at: string;
@@ -88,6 +143,18 @@ export interface BookingRequest {
     facility_name: string;
     min_quantity: number;
   }>;
+  review_history?: RequestReviewHistory[];
+}
+
+export interface RequestReviewHistory {
+  id: number;
+  request_id: number;
+  reviewer_user_id: number;
+  reviewer_name?: string;
+  reviewer_role?: UserRole;
+  action: "SUBMITTED" | "ENDORSED" | "REJECTED_BY_ADVISOR" | "APPROVED_BY_ADMIN" | "REJECTED_BY_ADMIN" | "COMMENT";
+  comments?: string | null;
+  created_at: string;
 }
 
 export type BookingStatus = "CONFIRMED" | "CANCELLED";

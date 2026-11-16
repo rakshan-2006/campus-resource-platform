@@ -113,8 +113,8 @@ function ConfirmModal({
 }: ConfirmModalProps) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-sm mx-4 p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in">
+      <div className="bg-white rounded-xl shadow-2xl border border-slate-300 w-full max-w-sm mx-4 p-6">
         <h3 className="text-sm font-semibold text-slate-900 mb-2">{title}</h3>
         <p className="text-sm text-slate-600 mb-5">{message}</p>
         <div className="flex justify-end gap-2">
@@ -250,8 +250,8 @@ function ScheduleModal({ open, resources, onClose, onCreated }: ScheduleModalPro
   const hasPreview = previewData !== null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in">
+      <div className="bg-white rounded-xl shadow-2xl border border-slate-300 w-full max-w-lg mx-4 flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
           <h2 className="text-sm font-semibold text-slate-900">Schedule Maintenance</h2>

@@ -870,8 +870,8 @@ export default function AdminResourcesPage() {
 
       {/* MODAL 1: ADD / EDIT RESOURCE WITH EXTENDED MONGO PROFILE */}
       {resourceModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 overflow-y-auto p-4">
-          <div className="bg-white rounded-lg border border-slate-200 shadow-xl w-full max-w-2xl my-8 overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm overflow-y-auto p-4 animate-in fade-in">
+          <div className="bg-white rounded-xl border border-slate-300 shadow-2xl w-full max-w-2xl my-8 overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
               <div>
                 <h3 className="font-bold text-slate-900 text-sm">
@@ -1224,8 +1224,8 @@ export default function AdminResourcesPage() {
 
       {/* MODAL 2: ADD / EDIT RESOURCE TYPE */}
       {typeModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-lg border border-slate-200 shadow-xl w-full max-w-md overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-white rounded-xl border border-slate-300 shadow-2xl w-full max-w-md overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
               <h3 className="font-bold text-slate-900 text-sm">
                 {editingType ? `Edit Resource Type: ${editingType.code}` : "Add Resource Type"}
@@ -1286,8 +1286,8 @@ export default function AdminResourcesPage() {
 
       {/* MODAL 3: ADD / EDIT FACILITY */}
       {facilityModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-lg border border-slate-200 shadow-xl w-full max-w-md overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-white rounded-xl border border-slate-300 shadow-2xl w-full max-w-md overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
               <h3 className="font-bold text-slate-900 text-sm">
                 {editingFacility ? `Edit Facility: ${editingFacility.code}` : "Add Facility Item"}
@@ -1348,8 +1348,8 @@ export default function AdminResourcesPage() {
 
       {/* MODAL 4: DELETE CONFIRMATION WITH EXPLICIT CONFLICT ERROR DISPLAY */}
       {deleteConfirm.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-lg border border-slate-200 shadow-xl w-full max-w-sm overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-white rounded-xl border border-slate-300 shadow-2xl w-full max-w-sm overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-200 bg-red-50/50">
               <h3 className="font-bold text-red-900 text-sm">Confirm Deletion</h3>
             </div>

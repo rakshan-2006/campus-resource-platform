@@ -29,7 +29,7 @@ export async function POST(
     const booking = bookingRes.rows[0];
 
     // Only booking owner or admin can cancel
-    if (user.role === "FACULTY" && booking.booked_by_user_id !== user.id) {
+    if (user.role !== "ADMIN" && booking.booked_by_user_id !== user.id) {
       return apiError(new Error("FORBIDDEN: You can only cancel your own bookings"));
     }
 

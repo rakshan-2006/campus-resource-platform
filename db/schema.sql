@@ -16,6 +16,9 @@ BEGIN
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'campus_faculty') THEN
         CREATE ROLE campus_faculty;
     END IF;
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'campus_club') THEN
+        CREATE ROLE campus_club;
+    END IF;
 END
 $$;
 
@@ -36,11 +39,14 @@ DROP FUNCTION IF EXISTS fn_recommend_resources(INT, INT, TIMESTAMP WITHOUT TIME 
 DROP PROCEDURE IF EXISTS sp_approve_request(INT, INT, INT) CASCADE;
 DROP FUNCTION IF EXISTS fn_set_current_user_id(INT) CASCADE;
 
+DROP TABLE IF EXISTS request_review_history CASCADE;
 DROP TABLE IF EXISTS resource_request_facility CASCADE;
 DROP TABLE IF EXISTS resource_facility CASCADE;
 DROP TABLE IF EXISTS booking CASCADE;
 DROP TABLE IF EXISTS maintenance CASCADE;
 DROP TABLE IF EXISTS booking_request CASCADE;
+DROP TABLE IF EXISTS club_advisor CASCADE;
+DROP TABLE IF EXISTS club_profile CASCADE;
 DROP TABLE IF EXISTS resource CASCADE;
 DROP TABLE IF EXISTS facility CASCADE;
 DROP TABLE IF EXISTS resource_type CASCADE;
@@ -61,20 +67,58 @@ CREATE TABLE department (
     CONSTRAINT uq_department_name UNIQUE (name)
 );
 
--- 3.2 Users (Single table for ADMIN and FACULTY; no separate admin/faculty tables)
+-- 3.2 Users (Single table for ADMIN, FACULTY, and CLUB with institutional verification)
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
-    department_id INT NOT NULL,
+    department_id INT,
     email VARCHAR(255) NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     name VARCHAR(100) NOT NULL,
     role VARCHAR(20) NOT NULL DEFAULT 'FACULTY',
+    verification_status VARCHAR(20) NOT NULL DEFAULT 'APPROVED',
+    verified_at TIMESTAMP WITHOUT TIME ZONE,
+    verified_by_user_id INT,
+    verification_notes TEXT,
     created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uq_users_email UNIQUE (email),
-    CONSTRAINT chk_users_role CHECK (role IN ('ADMIN', 'FACULTY')),
+    CONSTRAINT chk_users_role CHECK (role IN ('ADMIN', 'FACULTY', 'CLUB')),
+    CONSTRAINT chk_users_verification_status CHECK (verification_status IN ('PENDING', 'APPROVED', 'REJECTED')),
     CONSTRAINT fk_users_department FOREIGN KEY (department_id) 
-        REFERENCES department(id) ON DELETE RESTRICT
+        REFERENCES department(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_users_verified_by FOREIGN KEY (verified_by_user_id)
+        REFERENCES users(id) ON DELETE SET NULL
 );
+
+-- 3.2.1 Club Profile (Relational profile for student clubs and societies)
+CREATE TABLE club_profile (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+    club_name VARCHAR(150) NOT NULL,
+    lead_name VARCHAR(100),
+    lead_phone VARCHAR(30),
+    category VARCHAR(50) NOT NULL DEFAULT 'Technical',
+    description TEXT,
+    founded_year INT,
+    created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_club_category CHECK (category IN ('Technical', 'Cultural', 'Sports', 'Literary', 'Social', 'Academic', 'Other'))
+);
+
+-- 3.2.2 Club Advisor (Relational assignment linking verified faculty as advisors)
+CREATE TABLE club_advisor (
+    id SERIAL PRIMARY KEY,
+    club_id INT NOT NULL REFERENCES club_profile(id) ON DELETE CASCADE,
+    faculty_user_id INT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    assigned_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    responded_at TIMESTAMP WITHOUT TIME ZONE,
+    notes TEXT,
+    CONSTRAINT chk_club_advisor_status CHECK (status IN ('PENDING', 'ACCEPTED', 'DECLINED', 'REPLACED'))
+);
+
+CREATE UNIQUE INDEX uq_club_active_advisor ON club_advisor (club_id) WHERE status = 'ACCEPTED';
+CREATE UNIQUE INDEX uq_club_pending_advisor ON club_advisor (club_id) WHERE status = 'PENDING';
+CREATE INDEX idx_club_advisor_faculty ON club_advisor (faculty_user_id, status);
 
 -- 3.3 Resource Type (Classroom, Computer Lab, Seminar Hall, Conference Room, Auditorium)
 CREATE TABLE resource_type (
@@ -144,18 +188,43 @@ CREATE TABLE booking_request (
     end_time TIMESTAMP WITHOUT TIME ZONE NOT NULL,
     expected_capacity INT NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    request_type VARCHAR(20) NOT NULL DEFAULT 'FACULTY',
+    club_id INT,
+    advisor_review_status VARCHAR(20) NOT NULL DEFAULT 'NOT_APPLICABLE',
+    event_type VARCHAR(50),
+    expected_guests TEXT,
+    equipment_notes TEXT,
     rejection_reason TEXT,
     created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT chk_request_capacity CHECK (expected_capacity > 0),
     CONSTRAINT chk_request_status CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED', 'CANCELLED')),
+    CONSTRAINT chk_request_type CHECK (request_type IN ('FACULTY', 'CLUB')),
+    CONSTRAINT chk_advisor_review_status CHECK (advisor_review_status IN ('NOT_APPLICABLE', 'PENDING_ADVISOR', 'ENDORSED', 'REJECTED')),
     CONSTRAINT chk_request_time_order CHECK (end_time > start_time),
     CONSTRAINT fk_booking_request_user FOREIGN KEY (user_id) 
         REFERENCES users(id) ON DELETE RESTRICT,
     CONSTRAINT fk_booking_request_type FOREIGN KEY (resource_type_id) 
         REFERENCES resource_type(id) ON DELETE RESTRICT,
     CONSTRAINT fk_booking_request_preferred_resource FOREIGN KEY (preferred_resource_id) 
-        REFERENCES resource(id) ON DELETE SET NULL
+        REFERENCES resource(id) ON DELETE SET NULL,
+    CONSTRAINT fk_booking_request_club FOREIGN KEY (club_id) 
+        REFERENCES club_profile(id) ON DELETE RESTRICT
+);
+
+-- 3.7.1 Request Review History (Audit trail of club submissions, advisor endorsements, and admin decisions)
+CREATE TABLE request_review_history (
+    id SERIAL PRIMARY KEY,
+    request_id INT NOT NULL,
+    reviewer_user_id INT NOT NULL,
+    action VARCHAR(30) NOT NULL,
+    comments TEXT,
+    created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_review_action CHECK (action IN ('SUBMITTED', 'ENDORSED', 'REJECTED_BY_ADVISOR', 'APPROVED_BY_ADMIN', 'REJECTED_BY_ADMIN', 'COMMENT')),
+    CONSTRAINT fk_review_history_request FOREIGN KEY (request_id)
+        REFERENCES booking_request(id) ON DELETE CASCADE,
+    CONSTRAINT fk_review_history_reviewer FOREIGN KEY (reviewer_user_id)
+        REFERENCES users(id) ON DELETE RESTRICT
 );
 
 -- 3.8 Resource Request Facility (Junction Table for requested facilities)
@@ -454,6 +523,12 @@ BEGIN
         RAISE EXCEPTION 'INVALID_STATE: Request % has already been resolved with status %', p_request_id, v_req.status;
     END IF;
 
+    -- 2.1 Enforce Faculty Advisor endorsement for Club requests
+    IF v_req.request_type = 'CLUB' AND v_req.advisor_review_status != 'ENDORSED' THEN
+        RAISE EXCEPTION 'ADVISOR_APPROVAL_REQUIRED: Club request % cannot be approved without faculty advisor endorsement (current status: %)',
+            p_request_id, v_req.advisor_review_status;
+    END IF;
+
     -- 3. Determine resource to assign (passed override or preferred resource)
     v_target_resource_id := COALESCE(p_assigned_resource_id, v_req.preferred_resource_id);
 
@@ -668,21 +743,27 @@ LEFT JOIN booking_slots bs ON hs.hour_of_day = bs.slot_hour
 ORDER BY hs.hour_of_day ASC;
 
 -- 7.3 v_pending_requests
--- Operational view of all pending requests with user details and requested facilities
+-- Operational view of all pending requests with user/club details and requested facilities
 CREATE OR REPLACE VIEW v_pending_requests AS
 SELECT 
     br.id AS request_id,
     br.title,
     br.description,
+    br.request_type,
+    br.club_id,
+    cp.club_name,
+    br.advisor_review_status,
     u.id AS user_id,
-    u.name AS faculty_name,
-    u.email AS faculty_email,
-    d.name AS department_name,
+    u.name AS applicant_name,
+    u.email AS applicant_email,
+    u.role AS applicant_role,
+    COALESCE(d.name, 'Student Affairs & Campus Clubs') AS department_name,
     rt.name AS resource_type_name,
     r_pref.name AS preferred_resource_name,
     br.expected_capacity,
     br.start_time,
     br.end_time,
+    br.event_type,
     br.created_at,
     ROUND((EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - br.created_at)) / 3600.0)::NUMERIC, 1) AS wait_hours,
     COALESCE(
@@ -697,25 +778,26 @@ SELECT
     ) AS requested_facilities
 FROM booking_request br
 JOIN users u ON br.user_id = u.id
-JOIN department d ON u.department_id = d.id
+LEFT JOIN department d ON u.department_id = d.id
 JOIN resource_type rt ON br.resource_type_id = rt.id
 LEFT JOIN resource r_pref ON br.preferred_resource_id = r_pref.id
+LEFT JOIN club_profile cp ON br.club_id = cp.id
 LEFT JOIN resource_request_facility rrf ON br.id = rrf.request_id
 LEFT JOIN facility f ON rrf.facility_id = f.id
 WHERE br.status = 'PENDING'
-GROUP BY br.id, u.id, u.name, u.email, d.name, rt.name, r_pref.name
+GROUP BY br.id, u.id, u.name, u.email, u.role, d.name, rt.name, r_pref.name, cp.club_name
 ORDER BY br.created_at ASC;
 
 -- ============================================================================
 -- 8. ROW LEVEL SECURITY (RLS) & GRANTS
 -- ============================================================================
 
--- Enable RLS on faculty-owned tables
+-- Enable RLS on faculty/club-owned tables
 ALTER TABLE booking_request ENABLE ROW LEVEL SECURITY;
 ALTER TABLE booking ENABLE ROW LEVEL SECURITY;
 
--- 8.1 Faculty Policies for booking_request:
--- Faculty can SELECT their own requests
+-- 8.1 Faculty & Club Policies for booking_request:
+-- Users can SELECT their own requests
 CREATE POLICY faculty_select_own_requests ON booking_request
 FOR SELECT
 TO campus_faculty
@@ -723,7 +805,14 @@ USING (
     user_id = NULLIF(current_setting('app.current_user_id', true), '')::INT
 );
 
--- Faculty can INSERT their own requests
+CREATE POLICY club_select_own_requests ON booking_request
+FOR SELECT
+TO campus_club
+USING (
+    user_id = NULLIF(current_setting('app.current_user_id', true), '')::INT
+);
+
+-- Users can INSERT their own requests
 CREATE POLICY faculty_insert_own_requests ON booking_request
 FOR INSERT
 TO campus_faculty
@@ -731,7 +820,14 @@ WITH CHECK (
     user_id = NULLIF(current_setting('app.current_user_id', true), '')::INT
 );
 
--- Faculty can UPDATE their own requests only if PENDING
+CREATE POLICY club_insert_own_requests ON booking_request
+FOR INSERT
+TO campus_club
+WITH CHECK (
+    user_id = NULLIF(current_setting('app.current_user_id', true), '')::INT
+);
+
+-- Users can UPDATE their own requests only if PENDING
 CREATE POLICY faculty_update_own_requests ON booking_request
 FOR UPDATE
 TO campus_faculty
@@ -743,8 +839,19 @@ WITH CHECK (
     user_id = NULLIF(current_setting('app.current_user_id', true), '')::INT
 );
 
--- 8.2 Faculty Policies for booking:
--- Faculty can view all confirmed bookings (for campus schedule transparency)
+CREATE POLICY club_update_own_requests ON booking_request
+FOR UPDATE
+TO campus_club
+USING (
+    user_id = NULLIF(current_setting('app.current_user_id', true), '')::INT
+    AND status = 'PENDING'
+)
+WITH CHECK (
+    user_id = NULLIF(current_setting('app.current_user_id', true), '')::INT
+);
+
+-- 8.2 Booking Policies:
+-- Users can view all confirmed bookings (for campus schedule transparency)
 CREATE POLICY faculty_select_confirmed_bookings ON booking
 FOR SELECT
 TO campus_faculty
@@ -753,7 +860,13 @@ USING (
     OR booked_by_user_id = NULLIF(current_setting('app.current_user_id', true), '')::INT
 );
 
--- Faculty cannot insert or update bookings directly (bookings are created via sp_approve_request)
+CREATE POLICY club_select_confirmed_bookings ON booking
+FOR SELECT
+TO campus_club
+USING (
+    status = 'CONFIRMED' 
+    OR booked_by_user_id = NULLIF(current_setting('app.current_user_id', true), '')::INT
+);
 
 -- 8.3 Admin Policies (Full access to all requests and bookings)
 CREATE POLICY admin_all_booking_requests ON booking_request
@@ -769,14 +882,26 @@ USING (true)
 WITH CHECK (true);
 
 -- 8.4 Grants to Roles
--- Read-only tables for faculty
+-- Read-only tables for faculty and club
 GRANT SELECT ON department, resource_type, resource, facility, resource_facility, maintenance, v_resource_utilization, v_peak_hours TO campus_faculty;
-GRANT SELECT ON users TO campus_faculty;
+GRANT SELECT ON users, club_profile, club_advisor, request_review_history TO campus_faculty;
 GRANT SELECT, INSERT, UPDATE ON booking_request TO campus_faculty;
 GRANT SELECT ON booking TO campus_faculty;
 GRANT SELECT, INSERT, UPDATE, DELETE ON resource_request_facility TO campus_faculty;
+GRANT UPDATE ON club_advisor TO campus_faculty;
+GRANT INSERT ON request_review_history TO campus_faculty;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO campus_faculty;
 GRANT EXECUTE ON FUNCTION fn_is_available, fn_recommend_resources, fn_set_current_user_id TO campus_faculty;
+
+-- Grants for club
+GRANT SELECT ON department, resource_type, resource, facility, resource_facility, v_resource_utilization, v_peak_hours TO campus_club;
+GRANT SELECT ON users, club_profile, club_advisor, request_review_history TO campus_club;
+GRANT SELECT, INSERT, UPDATE ON booking_request TO campus_club;
+GRANT SELECT ON booking TO campus_club;
+GRANT SELECT, INSERT, UPDATE, DELETE ON resource_request_facility TO campus_club;
+GRANT INSERT ON request_review_history TO campus_club;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO campus_club;
+GRANT EXECUTE ON FUNCTION fn_is_available, fn_recommend_resources, fn_set_current_user_id TO campus_club;
 
 -- Full access for admin
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO campus_admin;

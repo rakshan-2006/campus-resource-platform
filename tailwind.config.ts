@@ -1,6 +1,7 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
+  darkMode: "class",
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -9,6 +10,31 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        background: "#f8fafc",
+        foreground: "#0f172a",
+        card: {
+          DEFAULT: "#ffffff",
+          foreground: "#0f172a",
+        },
+        muted: {
+          DEFAULT: "#f1f5f9",
+          foreground: "#475569",
+        },
+        border: "#cbd5e1",
+        input: "#cbd5e1",
+        ring: "#0f172a",
+        primary: {
+          DEFAULT: "#0f172a",
+          foreground: "#ffffff",
+        },
+        secondary: {
+          DEFAULT: "#f1f5f9",
+          foreground: "#0f172a",
+        },
+        destructive: {
+          DEFAULT: "#dc2626",
+          foreground: "#ffffff",
+        },
         campus: {
           50: "#f8fafc",
           100: "#f1f5f9",

@@ -40,6 +40,13 @@ export async function POST(
       [requestId, user!.id, assignedResourceId]
     );
 
+    // Record review history
+    await query(
+      `INSERT INTO request_review_history (request_id, reviewer_user_id, action, comments, created_at)
+       VALUES ($1, $2, 'APPROVED_BY_ADMIN', 'Venue allocation confirmed by campus administrator', CURRENT_TIMESTAMP)`,
+      [requestId, user!.id]
+    );
+
     // Fetch confirmed booking details
     const bookingRes = await query(
       `SELECT b.id, b.request_id, b.resource_id, r.code AS resource_code, r.name AS resource_name,
