@@ -1,7 +1,6 @@
 ## Pull Request Summary
 
 ### Feature / Work Item
-- **Owner**: Person A / Person B
 - **Milestone**: 
 - **Component / Scope**: 
 

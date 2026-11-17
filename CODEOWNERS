@@ -1,17 +1,16 @@
-# Code Owners definition for DBMS Project
-# Person A is Main Developer (75% foundation & core features)
-# Person B is Secondary Developer (Admin resources, maintenance, analytics, demo-conflict)
+# Request reviews for the core application and database.
+* @rakshan-2006
 
-# Default: Person A owns the core foundation, database schema, auth, faculty flows, booking engine
-* @person-a
-
-# Person B Owned Feature Areas:
-/src/app/admin/resources/ @person-b
-/src/app/admin/maintenance/ @person-b
-/src/app/admin/analytics/ @person-b
-/src/app/api/admin/resources/ @person-b
-/src/app/api/admin/maintenance/ @person-b
-/src/app/api/admin/analytics/ @person-b
-/db/demo-data.sql @person-b
-/scripts/demo-conflict.sql @person-b
-/docs/ADMIN_FEATURES.md @person-b
+# Administrative features, demo data, and documentation.
+/src/app/admin/resources/ @rajatkooge5-learn
+/src/app/admin/maintenance/ @rajatkooge5-learn
+/src/app/admin/analytics/ @rajatkooge5-learn
+/src/app/api/admin/resources/ @rajatkooge5-learn
+/src/app/api/admin/resource-types/ @rajatkooge5-learn
+/src/app/api/admin/facilities/ @rajatkooge5-learn
+/src/app/api/admin/resource-profiles/ @rajatkooge5-learn
+/src/app/api/admin/maintenance/ @rajatkooge5-learn
+/src/app/api/admin/analytics/ @rajatkooge5-learn
+/db/demo-data.sql @rajatkooge5-learn
+/scripts/demo-conflict.sql @rajatkooge5-learn
+/docs/ADMIN_FEATURES.md @rajatkooge5-learn

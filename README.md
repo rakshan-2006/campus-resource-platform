@@ -1,8 +1,11 @@
 # Campus Resource Allocation & Conflict Detection Platform
 
-**Course**: Database Management Systems (DBMS) Mini-Project  
-**Author**: Person A (Main Developer — Foundation, Core Relational Schema, Auth, APIs, Multi-Stage Workflow & UI Modernization)  
-**Collaborator**: Person B (Assigned Admin Feature Extensions: Catalog CRUD, Maintenance Lifecycle, Analytics & Extended NoSQL Profiles)  
+**Course**: Database Management Systems (DBMS) Mini-Project
+
+**Project Team**:
+- Rakshan R (PES1UG24CS365)
+- Rajat Kooge (PES1UG24CS362)
+
 **Technology Stack**: Next.js 15 (App Router), TypeScript strict, Tailwind CSS, PostgreSQL 16 (`btree_gist`), MongoDB 7, `pg`, official `mongodb` driver, Zod, bcryptjs, jose, Recharts, lucide-react.
 
 ---
@@ -11,15 +14,15 @@
 
 ```mermaid
 graph TD
-    subgraph Client Layer
+    subgraph client["Client Layer"]
         Browser["Next.js 15 Modern Institutional UI<br/>(Role-Specific Dashboards, Registration, Advisor Desk, Timeline)"]
     end
 
-    subgraph Server Layer
+    subgraph server["Server Layer"]
         NextServer["Next.js App Router API Routes<br/>(JWT Cookie Auth, Role Gates, Parameterized Queries)"]
     end
 
-    subgraph Relational Database [PostgreSQL 16 Engine - Single Source of Truth]
+    subgraph relational["PostgreSQL 16 - Relational Engine of Record"]
         PG_Tables[("Core Relational Tables<br/>users, club_profile, club_advisor, booking_request, booking, review_history")]
         PG_GIST["GiST Exclusion Constraint<br/>exclude_overlapping_confirmed_bookings"]
         PG_Procs["Stored Procedures & Functions<br/>sp_approve_request, fn_recommend_resources, fn_is_available"]
@@ -27,37 +30,25 @@ graph TD
         PG_RLS["Row Level Security (RLS)<br/>campus_faculty, campus_club & campus_admin"]
     end
 
-    subgraph Document Database [MongoDB 7]
-        Mongo_Coll[("campus_resource_profiles<br/>Polymorphic Hardware & Software Specs")]
+    subgraph document["MongoDB 7 - Advisory Hardware Profiles"]
+        MG_Docs[("resource_profiles Collection<br/>Polymorphic Specs, Software Installed, AV Hardware")]
     end
 
-    Browser <-->|HTTP / JSON Envelope| NextServer
-    NextServer <-->|pg Connection Pool (ACID Transactions)| PG_Tables
-    NextServer -.->|mongodb Official Driver (Advisory Specs)| Mongo_Coll
-    PG_Tables --- PG_GIST
-    PG_Tables --- PG_Procs
-    PG_Tables --- PG_Trigs
-    PG_Tables --- PG_RLS
+    Browser -->|HTTPS / Next Server Actions| NextServer
+    NextServer -->|Connection Pooling pg.Pool| relational
+    NextServer -->|MongoClient Driver| document
 ```
-
-### Store Separation Rationale
-- **PostgreSQL 16**: The authoritative source of truth for all users, clubs, advisor appointments, registration verification, venue requests, review decisions/audit trails, bookings, and conflict prevention. Enforces strict ACID compliance, serializable row locking (`FOR UPDATE`), and mathematical overlap prevention via `btree_gist` exclusion constraints.
-- **MongoDB 7**: Employed solely for polymorphic, variable resource specifications (e.g. computer lab GPU models, software packages array `["Docker", "MATLAB"]`, auditorium stage dimensions, acoustics, and accessibility features). **MongoDB never stores or duplicates booking, request, or authorization records.**
 
 ---
 
-## 2. One-Command Setup & Launch
+## 2. Quickstart & Local Setup
 
-### Prerequisites
-- Node.js 20+ / 22+
-- Docker & Docker Compose (or local PostgreSQL 16 on WSL2/Host and MongoDB instances)
-
-### Quick Start
 ```bash
-# 1. Clone repository and navigate to root
-cd "DBMS Project"
+# 1. Clone repository
+git clone https://github.com/rakshan-2006/campus-resource-platform.git
+cd campus-resource-platform
 
-# 2. Install dependencies
+# 2. Install all dependencies
 npm install
 
 # 3. Start PostgreSQL and MongoDB (via Docker Compose or local daemons)
@@ -75,6 +66,10 @@ npm run dev
 
 Open your browser at **`http://localhost:3000`**.
 
+`db:setup` resets the demo data. To upgrade a database created by the previous version and keep its rows, back it up and run `npm run db:migrate -- --upgrade-level-3` instead. Restart the app after upgrading.
+
+Booking, request, approval and dashboard queries select a PostgreSQL role for each authenticated transaction. Faculty and Clubs can access their own records and see anonymous occupancy on shared timelines.
+
 ---
 
 ## 3. Seeded Accounts & Demo Scenarios
@@ -91,65 +86,47 @@ Deterministic demo accounts are pre-seeded in PostgreSQL. The `/login` page prov
 | **PENDING CLUB** | Design Guild | `pending.club@campus.edu` | `Club@123` | Self-registered Club awaiting Admin verification |
 | **PENDING FACULTY** | Dr. John von Neumann | `pending.faculty@campus.edu` | `Faculty@123` | Self-registered Faculty applicant awaiting Admin verification |
 
----
-
-## 4. Multi-Stage Workflow & Business Rules
-
-### 1. Self-Registration & Administrative Verification
-- **Public Create Account**: Applicants navigate to `/login` and switch to the **Create account** tab.
-- **Role Selection**: Applicants choose between `FACULTY` and `CLUB`. `ADMIN` accounts cannot be created via public registration.
-  - **Faculty**: Submits full name, institutional email, password, and academic department.
-  - **Club**: Submits organization name, contact email, password, category, description, student lead name & phone, founded year, and nominates an eligible verified faculty advisor.
-- **Admin Verification**: New accounts start in `PENDING` verification status. Protected administrative desk at `/admin/registrations` enables campus administrators to review, approve, or reject applicants with audit notes.
-
-### 2. Faculty Advisor Mentorship Model
-- **Relationship, Not a Global Role**: "Faculty Advisor" is modeled via the relational table `club_advisor` pointing to `users(id)` where `role = 'FACULTY'`. A faculty member retains their primary faculty permissions while gaining an **Advisor Desk** (`/advisor/inbox`).
-- **One Active Advisor per Club**: Enforced via partial unique index `uq_club_active_advisor` on `(club_id) WHERE (status = 'ACCEPTED')`.
-- **Advisor Acceptance**: Nominated faculty receive pending invitations in their Advisor Desk and can `ACCEPT` or `DECLINE`. Unrelated faculty cannot access or respond to foreign club invitations.
-
-### 3. Club Event Booking & Multi-Stage Review
-- **Event Submission**: Verified clubs with accepted advisors submit event proposals capturing event type (Hackathon, Workshop, Cultural, etc.), title, description, expected attendance, external guests, preferred venue, facilities, and equipment notes.
-- **Advisor Endorsement Gate**: The proposal enters `PENDING_ADVISOR`. The designated advisor reviews the proposal in their Advisor Desk and either:
-  - **Endorses** with recommendations (advances proposal to Admin Triage Desk). Endorsement signals academic support; it never allocates a venue.
-  - **Returns / Rejects** with constructive feedback (returns proposal to club).
-- **Engine-Level Enforcement (`sp_approve_request`)**:
-  ```sql
-  IF v_req.request_type = 'CLUB' AND v_req.advisor_review_status != 'ENDORSED' THEN
-      RAISE EXCEPTION 'ADVISOR_APPROVAL_REQUIRED: Club requests must be endorsed by their designated faculty advisor before administrative venue allocation.';
-  END IF;
-  ```
-- **Final Admin Allocation**: Campus administrators perform final room assignment through automated conflict checking. An atomic booking record is generated, and overlap protection is guaranteed by the GiST exclusion constraint (`23P01`).
-- **Complete Audit Trail (`request_review_history`)**: Tracks `SUBMITTED`, `ENDORSED`, `REJECTED_BY_ADVISOR`, `APPROVED_BY_ADMIN`, and `REJECTED_BY_ADMIN` with timestamps and reviewer remarks.
+> [!NOTE]
+> The development server displays one-click prefill buttons. Production blocks the three seeded demo accounts. Before running a production server, provision real accounts with bcrypt password hashes and configure a unique random `JWT_SECRET` of at least 32 characters. Generate one with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`. The supplied Compose setup is for local use and binds both database ports to loopback.
 
 ---
 
-## 5. Visual Design & Modernization
+## 4. Multi-Stage Club & Advisor Review Workflow
 
-- **Institutional Identity**: Restrained navy/slate institutional aesthetic matching campus governance standards.
-- **Grouped Admin Tools Navigation**: Cluttered top navigation reworked with a responsive dropdown section for Admin Tools (`/admin/registrations`, `/admin/resources`, `/admin/maintenance`, `/admin/analytics`). Removed all temporary "(B)" tags.
-- **Role-Adapted Dashboards**:
-  - **Club Workspace**: Shows club verification status banner, designated advisor card, 4 KPI metric counters, recent event proposals with review status badges, and upcoming confirmed bookings.
-  - **Faculty Workspace**: Personal academic bookings plus a prominent **Faculty Advisor Desk** notification banner linking to `/advisor/inbox` when clubs or proposals require attention.
-  - **Admin Operations Center**: Triage queue, pending account registrations counter, room availability stats, and campus resource utilization overview.
-- **Campus-Local Date & Time Formatting**: Replaced raw SQL strings (`2026-11-20 09:00:00`) with campus-local formatting (`Nov 20, 2026` · `9:00 AM – 11:00 AM`).
-- **Elimination of Implementation Jargon**: Internal database view names (`v_pending_requests`, `v_resource_utilization`) and function names (`fn_recommend_resources`) replaced with clean, human-readable labels in user-facing UI.
-- **Responsive Toolbar**: Search and status filter controls consolidated into compact responsive toolbars with mobile navigation drawer support.
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Club as Student Club
+    actor Advisor as Faculty Advisor
+    actor Admin as Campus Admin
+    participant PG as PostgreSQL Engine
+
+    Club->>PG: Register account nominating Faculty Advisor
+    Admin->>PG: Review & verify Club registration (APPROVED)
+    Advisor->>PG: Accept advisor nomination (ACCEPTED)
+    Club->>PG: Submit event venue request (PENDING_ADVISOR)
+    Note over PG: Direct admin allocation blocked by sp_approve_request
+    Advisor->>PG: Review event proposal & endorse (ENDORSED)
+    Admin->>PG: Triage & confirm room allocation (CALL sp_approve_request)
+    Note over PG: Atomic allocation, GiST overlap guard, inserts confirmed booking
+    PG-->>Club: Booking confirmed and scheduled on timeline
+```
 
 ---
 
-## 6. Automated Verification Suites
+## 5. Verification & Test Suites
 
 ```bash
-# 1. Advanced PostgreSQL Features Suite (GiST constraint, triggers, stored procedures, RLS)
+# 1. Run PostgreSQL Advanced Database Feature Suite (GiST constraints, procedures, triggers, RLS)
 npm run test:db
 
-# 2. Person B Collaborator Verification Suite (Resource CRUD, Maintenance, Analytics, MongoDB)
-npm run test:person-b
+# 2. Run Admin Feature Extensions Suite (Catalog CRUD, Maintenance lifecycle, Analytics, Mongo profiles)
+npm run test:admin
 
-# 3. Club Workflow & Multi-Stage Advisor Review Integration Suite (10 Comprehensive Checks)
+# 3. Run Club Workflow & Multi-Stage Advisor Review Integration Suite
 npm run test:club
 
-# 4. Run All Test Suites Sequentially
+# 4. Run All Automated Verification Suites Sequentially
 npm run test:all
 
 # 5. TypeScript Strict Typecheck
@@ -161,8 +138,38 @@ npm run build
 
 ---
 
+## 6. Architectural Decisions
+
+| Decision | Rationale |
+| :--- | :--- |
+| **Raw SQL (`pg`) over ORM** | Explicit control over parameterized queries, transaction isolation, GiST exclusion constraints, and stored procedure calls without ORM impedance mismatch. |
+| **PostgreSQL as Single Source of Truth** | All reservation logic involves serializable concurrency and referential integrity. PostgreSQL guarantees zero double-bookings via its GiST exclusion constraint and row-level locks in `sp_approve_request`. |
+| **Advisory NoSQL Specifications** | Extended hardware/software specifications differ across labs and auditoriums. Placing them in MongoDB avoids table bloat while keeping bookings strictly relational. |
+| **Raw Timestamp Strings (`TIMESTAMP WITHOUT TIME ZONE`)** | Campus operating times are local wall-clock hours (`YYYY-MM-DD HH:mm`). Zone conversion via JavaScript `Date` was strictly disabled (`types.setTypeParser(1114, val => val)`). |
+| **Multi-Stage Review Workflow** | Club requests require faculty endorsement before admin triage. Modeled as a separate review stage (`advisor_review_status`) to preserve existing faculty booking flow. |
+| **Dense Institutional UI** | Calm, slate/navy operations dashboard prioritizing data density, accessible focus states, and practical tables over superficial styling. |
+
+---
+
 ## 7. Database Migration & Schema Details
 
 - **Migration Script**: `db/migration-club-workflow.sql` (Executed via `npm run db:migrate:club`).
 - **Fresh-Install Schema**: `db/schema.sql` contains the complete authoritative schema including all tables, constraints, views, stored procedures, triggers, and roles.
 - **ER Diagram**: Documented in [`docs/ERD.md`](file:///c:/Acad/Sem%205/DBMS%20Project/docs/ERD.md).
+
+---
+
+## 8. Limitations & Future Work
+
+- **Multi-Day Recurring Bookings**: Currently, reservations are evaluated per discrete start/end window. Future iterations could support weekly recurring timetable slots with automated batch conflict detection.
+- **Resource Swapping Optimizer**: When a high-priority institutional event requires an already booked auditorium, an automated suggestion engine could propose equivalent alternative venues to displaced faculty.
+- **Dynamic Energy Integration**: Syncing HVAC/lighting controllers via campus IoT webhooks based on confirmed active booking intervals.
+
+---
+
+## 9. Viva Walkthrough Guide (Examiner Brief)
+
+1. **Why PostgreSQL is authoritative**: All reservation logic involves serializable concurrency and referential integrity. PostgreSQL guarantees zero double-bookings via its GiST exclusion constraint and row-level locks in `sp_approve_request`.
+2. **Why MongoDB is limited to flexible profiles**: Hardware configurations (CPUs, RAM, 20+ software packages) and auditorium stage setups are semi-structured and vary wildly. MongoDB's document model and multikey array indexing handle this without polluting relational tables.
+3. **The Conflict Rule**: Overlapping intervals are defined as `new_start < existing_end AND new_end > existing_start`.
+4. **Contributions**: Rakshan R built the foundation, database schema, authentication, core APIs, recommendation engine, club account workflow, and advisor review. Rajat Kooge built admin resource management, maintenance scheduling, and analytics. See the [implementation history](docs/CONTRIBUTIONS.md) for the related pull requests.

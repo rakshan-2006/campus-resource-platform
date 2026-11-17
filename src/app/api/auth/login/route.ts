@@ -5,6 +5,8 @@ import { query } from "@/lib/db";
 import { verifyPassword, setSessionCookie } from "@/lib/auth";
 import { apiSuccess, apiError } from "@/lib/api-response";
 
+const demoEmails = new Set(["admin@campus.edu", "faculty1@campus.edu", "faculty2@campus.edu"]);
+
 const loginSchema = z.object({
   email: z.string().email("Valid institutional email is required"),
   password: z.string().min(1, "Password is required"),
@@ -14,6 +16,11 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { email, password } = loginSchema.parse(body);
+
+    const normalizedEmail = email.toLowerCase().trim();
+    if (process.env.NODE_ENV === "production" && demoEmails.has(normalizedEmail)) {
+      return apiError(new Error("UNAUTHORIZED: Invalid email or password"));
+    }
 
     const userRes = await query(
       `SELECT 
@@ -31,7 +38,7 @@ export async function POST(req: NextRequest) {
        LEFT JOIN department d ON u.department_id = d.id
        LEFT JOIN club_profile cp ON u.id = cp.user_id
        WHERE u.email = $1`,
-      [email.toLowerCase().trim()]
+      [normalizedEmail]
     );
 
     if (userRes.rows.length === 0) {

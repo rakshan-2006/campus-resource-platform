@@ -2,15 +2,17 @@
 // Verification script exercising PostgreSQL functions, triggers, GiST constraints, procedures, and RLS
 
 import { Client } from "pg";
+import assert from "node:assert/strict";
 
 async function runTests() {
-  const client = new Client({
+  const config = {
     host: process.env.POSTGRES_HOST || "127.0.0.1",
     port: parseInt(process.env.POSTGRES_PORT || "5432"),
     database: process.env.POSTGRES_DB || "campus_db",
     user: process.env.POSTGRES_USER || "postgres",
     password: process.env.POSTGRES_PASSWORD || "postgres",
-  });
+  };
+  const client = new Client(config);
 
   await client.connect();
   console.log("=== RUNNING POSTGRESQL ADVANCED FEATURES SUITE ===\n");
@@ -175,13 +177,7 @@ async function runTests() {
     // TEST 7: Row-Level Security (RLS) Isolation
     // ------------------------------------------------------------------------
     console.log("\nTEST 7: Row Level Security (RLS) & Faculty Isolation");
-    const rlsClient = new Client({
-      host: process.env.POSTGRES_HOST || "127.0.0.1",
-      port: parseInt(process.env.POSTGRES_PORT || "5432"),
-      database: process.env.POSTGRES_DB || "campus_db",
-      user: "postgres",
-      password: "postgres",
-    });
+    const rlsClient = new Client(config);
     await rlsClient.connect();
 
     // Begin transaction and switch to campus_faculty role for Faculty 2 (ID 3)
@@ -205,15 +201,86 @@ async function runTests() {
     if (hackUpdate.rowCount !== 0) {
       throw new Error("FAILED: RLS allowed faculty to update another user's request!");
     }
+    const otherFacilities = await rlsClient.query(
+      "UPDATE resource_request_facility SET min_quantity = 99 WHERE request_id = 4"
+    );
+    assert.equal(otherFacilities.rowCount, 0);
+    const otherBooking = await rlsClient.query("SELECT id FROM booking WHERE id = 1");
+    assert.equal(otherBooking.rowCount, 0);
+    const occupancy = await rlsClient.query("SELECT id FROM v_confirmed_occupancy WHERE id = 1");
+    assert.equal(occupancy.rowCount, 1);
+    await rlsClient.query("SAVEPOINT before_hash_check");
+    await assert.rejects(rlsClient.query("SELECT password_hash FROM users"), { code: "42501" });
+    await rlsClient.query("ROLLBACK TO SAVEPOINT before_hash_check");
+    await assert.rejects(rlsClient.query("CALL sp_approve_request(4, 1, 1)"), { code: "42501" });
     console.log("  ✓ RLS successfully isolated faculty records. Direct queries cannot breach boundary.");
     await rlsClient.query("ROLLBACK");
     await rlsClient.end();
+
+    await assert.rejects(client.query("CALL sp_approve_request(4, 1, 6)"), /does not meet the requested type, capacity, or facility quantities/);
+    await client.query("BEGIN");
+    try {
+      await client.query("UPDATE resource_request_facility SET min_quantity = 3 WHERE request_id = 3 AND facility_id = 1");
+      await assert.rejects(client.query("CALL sp_approve_request(3, 1, 5)"), /facility quantities/);
+    } finally {
+      await client.query("ROLLBACK");
+    }
+    await testConcurrentApprovals(config, client);
 
     console.log("\n=======================================================");
     console.log("✓ ALL POSTGRESQL ADVANCED DATABASE TESTS PASSED CLEANLY!");
     console.log("=======================================================\n");
   } finally {
     await client.end();
+  }
+}
+
+async function testConcurrentApprovals(config: ConstructorParameters<typeof Client>[0], client: Client) {
+  console.log("\nTEST 8: Concurrent approvals from independent PostgreSQL sessions");
+  const first = new Client(config);
+  const second = new Client(config);
+  const ids: number[] = [];
+  try {
+    await Promise.all([first.connect(), second.connect()]);
+    const created = await client.query<{ id: number }>(`
+      INSERT INTO booking_request
+        (user_id, resource_type_id, preferred_resource_id, title, start_time, end_time, expected_capacity, status)
+      SELECT user_id, 1, 1, 'Concurrent approval test',
+             CURRENT_DATE + INTERVAL '90 days 9 hours', CURRENT_DATE + INTERVAL '90 days 10 hours', 10, 'PENDING'
+      FROM (VALUES (2), (3)) AS test_users(user_id)
+      RETURNING id
+    `);
+    ids.push(...created.rows.map(({ id }) => id));
+    await first.query("BEGIN");
+    await first.query("CALL sp_approve_request($1, 1, 1)", [ids[0]]);
+    const secondPid = (await second.query("SELECT pg_backend_pid() AS pid")).rows[0].pid;
+    const competing = second.query("CALL sp_approve_request($1, 1, 1)", [ids[1]])
+      .then(() => null, (error: Error & { code?: string }) => error);
+    let waiting = false;
+    for (let attempt = 0; attempt < 50 && !waiting; attempt++) {
+      const result = await client.query("SELECT cardinality(pg_blocking_pids($1)) > 0 AS blocked", [secondPid]);
+      waiting = result.rows[0].blocked;
+      if (!waiting) await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    await first.query("COMMIT");
+    const error = await competing;
+    assert.ok(waiting, "Second approval must wait on the first transaction");
+    assert.match(error?.message ?? "", /RESOURCE_CONFLICT|exclude_overlapping_confirmed_bookings/);
+    const outcome = await client.query(`
+      SELECT br.status, b.id AS booking_id
+      FROM booking_request br LEFT JOIN booking b ON br.id = b.request_id
+      WHERE br.id = ANY($1::int[]) ORDER BY br.status
+    `, [ids]);
+    assert.deepEqual(outcome.rows.map(({ status }) => status), ["APPROVED", "PENDING"]);
+    assert.equal(outcome.rows.filter(({ booking_id }) => booking_id !== null).length, 1);
+    console.log("  ✓ One approval committed and the other request stayed pending.");
+  } finally {
+    await first.end();
+    await second.end();
+    if (ids.length) {
+      await client.query("DELETE FROM booking WHERE request_id = ANY($1::int[])", [ids]);
+      await client.query("DELETE FROM booking_request WHERE id = ANY($1::int[])", [ids]);
+    }
   }
 }
 

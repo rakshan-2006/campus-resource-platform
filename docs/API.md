@@ -333,12 +333,17 @@ Rejects a pending booking request with an explanatory reason.
 ## 6. Bookings Management
 
 ### 6.1 `GET /api/bookings`
-Returns confirmed or historical campus bookings.
+
+Faculty booking lists show their own reservations. The shared schedule uses
+`view=schedule&start_date=YYYY-MM-DD&end_date=YYYY-MM-DD` and returns confirmed
+room occupancy to faculty without request titles or account details. Admins
+can list campus-wide confirmed or historical bookings.
 
 - **Query Parameters**:
   - `resource_id` (optional, integer)
   - `start_date` (optional, `YYYY-MM-DD`)
   - `end_date` (optional, `YYYY-MM-DD`)
+  - `view=schedule` (optional, requires both dates)
 
 ---
 

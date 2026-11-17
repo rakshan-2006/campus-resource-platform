@@ -1,5 +1,7 @@
 "use client";
 
+import { campusDate } from "@/lib/campus-time";
+
 import React, { useEffect, useState } from "react";
 import { Resource, Booking } from "@/types";
 import { Timeline, TimelineSlot } from "@/components/ui/timeline";
@@ -10,7 +12,7 @@ import { Clock, Calendar, Building2, Filter } from "lucide-react";
 export default function CampusTimelinePage() {
   const [resources, setResources] = useState<Resource[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [selectedDate, setSelectedDate] = useState<string>("2026-11-20");
+  const [selectedDate, setSelectedDate] = useState(campusDate);
   const [selectedType, setSelectedType] = useState<string>("");
   const [loading, setLoading] = useState(true);
 
@@ -18,7 +20,7 @@ export default function CampusTimelinePage() {
     setLoading(true);
     Promise.all([
       fetch("/api/resources").then((res) => res.json()),
-      fetch(`/api/bookings?start_date=${selectedDate}&end_date=${selectedDate}&status=CONFIRMED`).then((res) => res.json()),
+      fetch(`/api/bookings?view=schedule&start_date=${selectedDate}&end_date=${selectedDate}&status=CONFIRMED`).then((res) => res.json()),
     ])
       .then(([resJson, bookJson]) => {
         setResources(resJson.data || []);

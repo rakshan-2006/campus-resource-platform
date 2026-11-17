@@ -1,7 +1,7 @@
 // src/app/api/dashboard/route.ts
 // Comprehensive role-specific dashboard telemetry for Admin, Faculty (with Advisor Desk), and Clubs
 
-import { query } from "@/lib/db";
+import { queryAsUser } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { apiSuccess, apiError } from "@/lib/api-response";
 
@@ -17,7 +17,7 @@ export async function GET() {
     // =========================================================================
     if (user.role === "CLUB") {
       const [clubRes, statsRes, requestsRes, bookingsRes] = await Promise.all([
-        query(
+        queryAsUser(user,
           `SELECT 
              cp.id, cp.club_name, cp.category, cp.lead_name, cp.lead_phone, cp.description,
              u.verification_status,
@@ -35,7 +35,7 @@ export async function GET() {
            LIMIT 1`,
           [user.id]
         ),
-        query(
+        queryAsUser(user,
           `SELECT 
              COUNT(*) FILTER (WHERE status = 'PENDING' AND advisor_review_status = 'PENDING_ADVISOR') AS pending_advisor_count,
              COUNT(*) FILTER (WHERE status = 'PENDING' AND advisor_review_status = 'ENDORSED') AS endorsed_pending_admin_count,
@@ -45,7 +45,7 @@ export async function GET() {
            WHERE user_id = $1`,
           [user.id]
         ),
-        query(
+        queryAsUser(user,
           `SELECT 
              br.id, br.title, br.start_time, br.end_time, br.status, br.expected_capacity,
              br.advisor_review_status, br.event_type,
@@ -58,7 +58,7 @@ export async function GET() {
            LIMIT 5`,
           [user.id]
         ),
-        query(
+        queryAsUser(user,
           `SELECT 
              b.id, b.start_time, b.end_time, b.status, br.title, 
              r.code AS resource_code, r.name AS resource_name, r.location
@@ -86,7 +86,7 @@ export async function GET() {
     // =========================================================================
     if (user.role === "FACULTY") {
       const [statsRes, requestsRes, bookingsRes, advisorRes, pendingReviewsRes] = await Promise.all([
-        query(
+        queryAsUser(user,
           `SELECT 
              COUNT(*) FILTER (WHERE status = 'PENDING') AS pending_requests_count,
              COUNT(*) FILTER (WHERE status = 'APPROVED') AS approved_requests_count,
@@ -95,7 +95,7 @@ export async function GET() {
            WHERE user_id = $1`,
           [user.id]
         ),
-        query(
+        queryAsUser(user,
           `SELECT 
              br.id, br.title, br.start_time, br.end_time, br.status, br.expected_capacity,
              rt.name AS resource_type_name, r.name AS preferred_resource_name
@@ -107,7 +107,7 @@ export async function GET() {
            LIMIT 5`,
           [user.id]
         ),
-        query(
+        queryAsUser(user,
           `SELECT 
              b.id, b.start_time, b.end_time, b.status, br.title, 
              r.code AS resource_code, r.name AS resource_name, r.location
@@ -120,7 +120,7 @@ export async function GET() {
           [user.id]
         ),
         // Advisor Desk: clubs advised and pending invitations
-        query(
+        queryAsUser(user,
           `SELECT 
              ca.id AS assignment_id,
              ca.club_id,
@@ -140,7 +140,7 @@ export async function GET() {
           [user.id]
         ),
         // Club event requests awaiting this faculty advisor's review
-        query(
+        queryAsUser(user,
           `SELECT 
              br.id, br.title, br.start_time, br.end_time, br.expected_capacity,
              br.event_type, br.created_at,
@@ -186,13 +186,13 @@ export async function GET() {
     // =========================================================================
     const [pendingRes, statsRes, utilRes, peakRes, pendingRegsRes] = await Promise.all([
       // Triage requests ready for allocation (Faculty requests OR Endorsed Club requests)
-      query(`
+      queryAsUser(user, `
         SELECT * FROM v_pending_requests 
         WHERE request_type = 'FACULTY' OR advisor_review_status = 'ENDORSED'
         ORDER BY created_at ASC
         LIMIT 10
       `),
-      query(`
+      queryAsUser(user, `
         SELECT 
           (SELECT COUNT(*) FROM resource WHERE status = 'AVAILABLE') AS available_resources_count,
           (SELECT COUNT(*) FROM resource WHERE status = 'MAINTENANCE') AS maintenance_resources_count,
@@ -201,10 +201,10 @@ export async function GET() {
           (SELECT COUNT(*) FROM users WHERE verification_status = 'PENDING') AS pending_registrations_count,
           (SELECT COUNT(*) FROM booking WHERE status = 'CONFIRMED' AND start_time >= CURRENT_TIMESTAMP) AS upcoming_bookings_count
       `),
-      query("SELECT * FROM v_resource_utilization ORDER BY utilization_percentage DESC LIMIT 5"),
-      query("SELECT * FROM v_peak_hours ORDER BY hour_of_day ASC"),
+      queryAsUser(user, "SELECT * FROM v_resource_utilization ORDER BY utilization_percentage DESC LIMIT 5"),
+      queryAsUser(user, "SELECT * FROM v_peak_hours ORDER BY hour_of_day ASC"),
       // Pending account registrations needing review
-      query(`
+      queryAsUser(user, `
         SELECT 
           u.id, u.name, u.email, u.role, u.created_at,
           COALESCE(d.name, 'Student Affairs & Campus Clubs') AS department_name,

@@ -1,6 +1,5 @@
-# Person B Documentation: Admin Features & Cross-Store Integration
+# Admin Features & Cross-Store Integration
 
-**Author**: Person B (Collaborator)  
 **Assigned Scope**: Admin Resource Management & MongoDB Extended Profiles, Maintenance Lifecycle Controls, and Operational Analytics & Conflict Demonstrations.
 
 ---

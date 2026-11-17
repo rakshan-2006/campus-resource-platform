@@ -1,5 +1,7 @@
 "use client";
 
+import { campusDate } from "@/lib/campus-time";
+
 import React, { useEffect, useState, use } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -29,7 +31,7 @@ export default function ResourceDetailPage({
 
   const [resource, setResource] = useState<any>(null);
   const [bookings, setBookings] = useState<any[]>([]);
-  const [selectedDate, setSelectedDate] = useState<string>("2026-11-20");
+  const [selectedDate, setSelectedDate] = useState(campusDate);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,7 +42,7 @@ export default function ResourceDetailPage({
         if (!res.ok) throw new Error("Failed to load resource data");
         return res.json();
       }),
-      fetch(`/api/bookings?resource_id=${resourceId}&start_date=${selectedDate}&end_date=${selectedDate}`).then((res) => res.json()),
+      fetch(`/api/bookings?view=schedule&resource_id=${resourceId}&start_date=${selectedDate}&end_date=${selectedDate}`).then((res) => res.json()),
     ])
       .then(([resJson, bookJson]) => {
         setResource(resJson.data);

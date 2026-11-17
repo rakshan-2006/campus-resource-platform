@@ -1,7 +1,7 @@
 // src/app/api/admin/requests/[id]/reject/route.ts
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { query } from "@/lib/db";
+import { queryAsUser } from "@/lib/db";
 import { getSessionUser, requireRole } from "@/lib/auth";
 import { apiSuccess, apiError } from "@/lib/api-response";
 
@@ -27,7 +27,7 @@ export async function POST(
     const body = await req.json();
     const { reason } = rejectSchema.parse(body);
 
-    const updateRes = await query(
+    const updateRes = await queryAsUser(user!,
       `UPDATE booking_request
        SET status = 'REJECTED',
            rejection_reason = $1,
@@ -42,7 +42,7 @@ export async function POST(
     }
 
     // Record rejection in review history
-    await query(
+    await queryAsUser(user!,
       `INSERT INTO request_review_history (
          request_id, reviewer_user_id, action, comments, created_at
        ) VALUES ($1, $2, 'REJECTED_BY_ADMIN', $3, CURRENT_TIMESTAMP)`,
