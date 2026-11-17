@@ -831,13 +831,20 @@ ALTER TABLE booking ENABLE ROW LEVEL SECURITY;
 ALTER TABLE resource_request_facility ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS faculty_select_own_requests ON booking_request;
+DROP POLICY IF EXISTS club_select_own_requests ON booking_request;
 DROP POLICY IF EXISTS faculty_insert_own_requests ON booking_request;
+DROP POLICY IF EXISTS club_insert_own_requests ON booking_request;
 DROP POLICY IF EXISTS faculty_update_own_requests ON booking_request;
+DROP POLICY IF EXISTS club_update_own_requests ON booking_request;
 DROP POLICY IF EXISTS faculty_select_confirmed_bookings ON booking;
 DROP POLICY IF EXISTS faculty_select_own_bookings ON booking;
+DROP POLICY IF EXISTS club_select_own_bookings ON booking;
 DROP POLICY IF EXISTS faculty_update_own_confirmed_bookings ON booking;
+DROP POLICY IF EXISTS club_update_own_confirmed_bookings ON booking;
 DROP POLICY IF EXISTS faculty_read_request_facilities ON resource_request_facility;
+DROP POLICY IF EXISTS club_read_request_facilities ON resource_request_facility;
 DROP POLICY IF EXISTS faculty_write_request_facilities ON resource_request_facility;
+DROP POLICY IF EXISTS club_write_request_facilities ON resource_request_facility;
 DROP POLICY IF EXISTS admin_all_booking_requests ON booking_request;
 DROP POLICY IF EXISTS admin_all_bookings ON booking;
 DROP POLICY IF EXISTS admin_all_request_facilities ON resource_request_facility;
@@ -965,6 +972,7 @@ WITH CHECK (true);
 -- 8.4 Grants to Roles
 -- Read-only tables for faculty and club
 GRANT SELECT ON department, resource_type, resource, facility, resource_facility, maintenance, v_resource_utilization, v_peak_hours TO campus_faculty;
+REVOKE SELECT ON users FROM campus_faculty;
 GRANT SELECT (id, name, email, department_id, role, verification_status) ON users TO campus_faculty;
 GRANT SELECT ON club_profile, club_advisor, request_review_history TO campus_faculty;
 GRANT SELECT, INSERT ON booking_request TO campus_faculty;
