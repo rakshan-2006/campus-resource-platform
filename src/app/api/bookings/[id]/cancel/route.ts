@@ -23,7 +23,7 @@ export async function POST(
         [bookingId]
       );
       if (!booking) throw new Error("NOT_FOUND: Booking not found");
-      if (user.role === "FACULTY" && booking.booked_by_user_id !== user.id) {
+      if (user.role !== "ADMIN" && booking.booked_by_user_id !== user.id) {
         throw new Error("FORBIDDEN: You can only cancel your own bookings");
       }
       if (booking.status !== "CONFIRMED") throw new Error("INVALID_STATE: Booking is already cancelled");

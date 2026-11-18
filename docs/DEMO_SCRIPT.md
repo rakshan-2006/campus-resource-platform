@@ -12,6 +12,9 @@ This script provides an examiner/evaluator walkthrough of the system, highlighti
    ```bash
    # Check PostgreSQL & MongoDB status
    npm run db:setup
+
+   # Ensure Club workflow migration is applied
+   npm run db:migrate:club
    ```
 2. **Launch Application**:
    ```bash
@@ -20,8 +23,12 @@ This script provides an examiner/evaluator walkthrough of the system, highlighti
    ```
 3. **Demo Accounts**:
    - **Administrator**: `admin@campus.edu` / `Admin@123`
-   - **Faculty CS**: `faculty1@campus.edu` / `Faculty@123`
-   - **Faculty EC**: `faculty2@campus.edu` / `Faculty@123`
+   - **Faculty CS & Advisor**: `faculty1@campus.edu` / `Faculty@123` (Dr. Grace Hopper)
+   - **Faculty ECE & Advisor**: `faculty2@campus.edu` / `Faculty@123` (Dr. Claude Shannon)
+   - **Verified Student Club**: `club1@campus.edu` / `Club@123` (ACM Student Chapter)
+   - **Verified Student Club**: `club2@campus.edu` / `Club@123` (Robotics Society)
+   - **Pending Club Applicant**: `pending.club@campus.edu` / `Club@123` (Design Guild)
+   - **Pending Faculty Applicant**: `pending.faculty@campus.edu` / `Faculty@123` (Dr. John von Neumann)
 
 ---
 
@@ -29,11 +36,11 @@ This script provides an examiner/evaluator walkthrough of the system, highlighti
 
 ### Step 1: Login & Role-Based Navigation
 - Navigate to `http://localhost:3000/login`.
-- Notice the dense, calm institutional layout.
+- Notice the clean, institutional layout.
 - Click **"Fill Faculty 1 (CS)"** and log in.
 - Observe:
-  - Header displays `Dr. Grace Hopper (Faculty CS)` with badge `FACULTY`.
-  - Navigation provides: **Dashboard**, **Explore Resources**, **New Request**, **My Requests**, **Campus Bookings**, **Schedule Timeline**.
+  - Header displays `Dr. Grace Hopper` with badge `FACULTY`.
+  - Navigation provides: **Dashboard**, **Explore Resources**, **New Request**, **My Requests**, **Advisor Desk**, **Campus Bookings**, **Schedule Timeline**.
   - Admin management links are restricted.
 
 ---
@@ -58,7 +65,7 @@ This script provides an examiner/evaluator walkthrough of the system, highlighti
   - Set Expected Capacity: **30**.
   - Set Date & Time: **2026-11-20 11:00** to **2026-11-20 13:00**.
   - Select Required Facility: **High-End Workstations**, Minimum Quantity: **30**.
-- Click **"Search & Compute Recommendations"**.
+- Click **"Search & Recommend Venues"**.
 - Evaluator Focus:
   - Show candidate cards returned by `fn_recommend_resources`.
   - Point out the **Component Score Breakdown**:
@@ -68,7 +75,7 @@ This script provides an examiner/evaluator walkthrough of the system, highlighti
     - Availability Score: `100.00%` (25% weight).
     - Type Score: `100.00%` (10% weight).
     - Location Score: `100.00%` (5% weight).
-- Click **"Select Resource & Submit Request"**.
+- Click **"Confirm Selection & Submit Request"**.
 - The request is submitted and appears in **My Requests** with status `PENDING`.
 
 ---
@@ -78,7 +85,7 @@ This script provides an examiner/evaluator walkthrough of the system, highlighti
 - Observe: Admin badge, administrative overview on Dashboard.
 - Navigate to **Admin Requests** (`/admin/requests`).
 - Locate the pending request submitted in Step 3.
-- Click **"Approve & Allocate"**.
+- Click **"Allocate Room"**.
 - Point out:
   - The API invokes PostgreSQL stored procedure `sp_approve_request`.
   - Stored procedure executes `FOR UPDATE` lock, checks `fn_is_available`, atomically updates request to `APPROVED`, and inserts a `CONFIRMED` booking.
@@ -92,7 +99,7 @@ This script provides an examiner/evaluator walkthrough of the system, highlighti
 - Observe the confirmed booking.
 - Run the exclusion test script in the terminal:
   ```bash
-  npx tsx scripts/test-db-features.ts --test=exclusion
+  npm run test:db
   ```
 - Evaluator Focus:
   - Show the PostgreSQL engine error `23P01 (exclusion_violation)`.
@@ -100,23 +107,64 @@ This script provides an examiner/evaluator walkthrough of the system, highlighti
 
 ---
 
-### Step 6: Trigger Demonstration: Maintenance & Cancellation Cascade
-- In the terminal or Admin view:
-  ```bash
-  npx tsx scripts/test-db-features.ts --test=maintenance
-  npx tsx scripts/test-db-features.ts --test=cancellation
-  ```
-- Show:
-  1. Setting maintenance to `IN_PROGRESS` immediately sets resource `status = 'MAINTENANCE'`.
-  2. Setting maintenance to `COMPLETED` restores `status = 'AVAILABLE'`.
-  3. Cancelling a request automatically cascades to cancel the associated booking row in `booking`.
+### Step 6: Public Self-Registration & Role Protection
+- Navigate to `http://localhost:3000/login`.
+- Switch to the **Create account** tab.
+- Evaluator Focus:
+  - Notice the role selector: **Faculty Member** vs **Student Club**. `ADMIN` accounts cannot be created publicly.
+  - Select **Student Club**:
+    - Progressive form discloses club-specific fields: **Club Category**, **Club Description**, **Student Lead Name & Phone**, **Founded Year**, and a dropdown to nominate a **Designated Faculty Advisor**.
+    - The dropdown displays verified faculty members fetched via `/api/metadata`.
+- Fill in new club details (e.g., "AI Robotics Circle") and submit.
+- The applicant is registered with status `PENDING`. Attempting to submit event requests is blocked until verified.
 
 ---
 
-### Step 7: Row-Level Security (RLS) Isolation
-- Run RLS verification:
+### Step 7: Protected Admin Registration Desk (`/admin/registrations`)
+- Log in as **Administrator** (`admin@campus.edu`).
+- Click on **Admin Tools** in the top navigation -> **Account Registrations**.
+- Observe:
+  - Compact responsive filter toolbar (Status: Pending / Approved / Rejected; Role: All / Faculty / Club).
+  - Dense table showing applicant name, email, role badge, organization details, and nominated advisor.
+  - Click **Approve** on a pending applicant -> opens verification modal with notes.
+  - Submit approval -> user `verification_status` updates to `APPROVED` and audit details are saved.
+
+---
+
+### Step 8: Faculty Advisor Desk (`/advisor/inbox`)
+- Log in as **Faculty** (Dr. Grace Hopper: `faculty1@campus.edu`).
+- On the Dashboard, point out the **Faculty Advisor Responsibilities** banner displaying pending proposals and nominations.
+- Navigate to **Advisor Desk** (`/advisor/inbox`).
+- Inspect the 3 tabs:
+  1. **Event Proposals**: Club proposals awaiting faculty endorsement.
+  2. **Assigned Clubs**: Clubs under this faculty member's mentorship.
+  3. **Advisor Nominations**: Invitations from clubs to serve as their advisor with **Accept Appointment** and **Decline** options.
+- On an event proposal (e.g. from ACM Student Chapter), click **Endorse Proposal**:
+  - Modal displays event title, expected students, external guests, and requested facilities.
+  - Enter endorsement comments and click **Confirm Endorsement**.
+  - Status updates to `ENDORSED`, advancing the proposal to administration.
+
+---
+
+### Step 9: Engine-Level Club Endorsement Enforcement
+- Run the automated test suite to prove database-level enforcement:
   ```bash
-  npx tsx scripts/test-db-features.ts --test=rls
+  npm run test:club
   ```
-- Demonstrate:
-  - When connection is in `campus_faculty` role with user ID 3, user 2's requests cannot be selected or modified.
+- Evaluator Focus:
+  - **Check 5**: Demonstrates that calling stored procedure `sp_approve_request` on an unendorsed club request (`PENDING_ADVISOR`) strictly raises `ADVISOR_APPROVAL_REQUIRED` at the PostgreSQL engine level. An admin cannot bypass faculty endorsement.
+  - **Check 7**: Shows that once endorsed, `sp_approve_request` succeeds and creates a confirmed booking.
+  - **Check 8**: Confirms that GiST exclusion blocks double-bookings over club reservations.
+  - **Check 9**: Proves sequential multi-stage audit trail (`SUBMITTED` -> `ENDORSED` -> `APPROVED_BY_ADMIN`).
+
+---
+
+### Step 10: Complete Audit Trail & Scoped Visibility
+- Log in as **Club** (`club1@campus.edu`).
+- On the Dashboard:
+  - View the **Club Workspace**: verification badge, advisor card (Dr. Grace Hopper), and pipeline counters.
+- Navigate to **Event Requests** (`/requests`):
+  - Notice the next-action badge: `Advisor Endorsed (Awaiting Admin)`.
+  - Click on the **Review History** link (`3 decisions`):
+    - Opens modal showing the full chronological decision audit trail: who reviewed, their role, timestamp, action, and remarks.
+- Note that clubs can view only their own requests and cannot access `/admin/*` routes.

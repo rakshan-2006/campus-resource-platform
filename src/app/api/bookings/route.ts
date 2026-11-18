@@ -43,7 +43,9 @@ export async function GET(req: NextRequest) {
         b.booked_by_user_id,
         u.name AS faculty_name,
         u.email AS faculty_email,
-        d.name AS department_name,
+        u.role AS booked_by_role,
+        COALESCE(cp.club_name, u.name) AS organizer_name,
+        COALESCE(d.name, 'Student Affairs & Campus Clubs') AS department_name,
         b.start_time,
         b.end_time,
         b.status,
@@ -53,7 +55,8 @@ export async function GET(req: NextRequest) {
       JOIN booking_request br ON b.request_id = br.id
       JOIN resource r ON b.resource_id = r.id
       JOIN users u ON b.booked_by_user_id = u.id
-      JOIN department d ON u.department_id = d.id
+      LEFT JOIN department d ON u.department_id = d.id
+      LEFT JOIN club_profile cp ON u.id = cp.user_id
       WHERE 1=1
     `;
 

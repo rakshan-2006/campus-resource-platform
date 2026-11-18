@@ -14,6 +14,13 @@ export type BadgeVariant =
   | "COMPLETED"
   | "ADMIN"
   | "FACULTY"
+  | "CLUB"
+  | "PENDING_ADVISOR"
+  | "ENDORSED"
+  | "NOT_APPLICABLE"
+  | "ACCEPTED"
+  | "DECLINED"
+  | "REPLACED"
   | "default";
 
 interface BadgeProps {
@@ -37,33 +44,113 @@ export const Badge: React.FC<BadgeProps> = ({
       case "APPROVED":
       case "CONFIRMED":
       case "COMPLETED":
-        return "bg-emerald-50 text-emerald-700 border-emerald-200";
+      case "ACCEPTED":
+        return "bg-emerald-100 text-emerald-900 border-emerald-300 font-semibold";
       case "PENDING":
       case "SCHEDULED":
-        return "bg-amber-50 text-amber-700 border-amber-200";
-      case "MAINTENANCE":
+        return "bg-amber-100 text-amber-950 border-amber-300 font-semibold";
       case "IN_PROGRESS":
-        return "bg-orange-50 text-orange-700 border-orange-200";
+        return "bg-orange-100 text-orange-950 border-orange-300 font-semibold";
+      case "PENDING_ADVISOR":
+        return "bg-amber-100 text-amber-900 border-amber-400 font-semibold";
+      case "ENDORSED":
+        return "bg-indigo-100 text-indigo-900 border-indigo-300 font-semibold";
+      case "MAINTENANCE":
       case "REJECTED":
       case "CANCELLED":
+      case "DECLINED":
       case "UNAVAILABLE":
-        return "bg-rose-50 text-rose-700 border-rose-200";
+        return "bg-red-100 text-red-900 border-red-300 font-semibold";
       case "ADMIN":
-        return "bg-purple-50 text-purple-700 border-purple-200";
+        return "bg-purple-100 text-purple-900 border-purple-300 font-semibold";
       case "FACULTY":
-        return "bg-blue-50 text-blue-700 border-blue-200";
+        return "bg-blue-100 text-blue-900 border-blue-300 font-semibold";
+      case "CLUB":
+        return "bg-teal-100 text-teal-900 border-teal-300 font-semibold";
+      case "NOT_APPLICABLE":
+        return "bg-slate-100 text-slate-700 border-slate-300 font-normal";
+      case "REPLACED":
       default:
-        return "bg-slate-100 text-slate-700 border-slate-200";
+        return "bg-slate-100 text-slate-800 border-slate-300 font-medium";
     }
   };
 
   return (
     <span
-      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border font-mono tracking-tight ${getStyle(
+      className={`inline-flex items-center px-2 py-0.5 rounded text-xs border ${getStyle(
         resolvedVariant
       )} ${className}`}
     >
-      {children || status}
+      {children || status || variant}
     </span>
   );
 };
+
+/**
+ * Helper to display clear next required action across requests
+ */
+export function getRequestStatusDescriptor(
+  reqOrStatus: string | { status: string; request_type?: string; advisor_review_status?: string },
+  advisor_review_status?: string,
+  request_type?: string
+): { label: string; variant: BadgeVariant; nextAction: string } {
+  let status: string;
+  let advStatus: string | undefined;
+  let reqType: string | undefined;
+
+  if (typeof reqOrStatus === "object" && reqOrStatus !== null) {
+    status = reqOrStatus.status;
+    advStatus = reqOrStatus.advisor_review_status;
+    reqType = reqOrStatus.request_type;
+  } else {
+    status = reqOrStatus;
+    advStatus = advisor_review_status;
+    reqType = request_type;
+  }
+
+  if (status === "APPROVED") {
+    return {
+      label: "Approved & Allocated",
+      variant: "APPROVED",
+      nextAction: "Resource booked & confirmed",
+    };
+  }
+  if (status === "REJECTED") {
+    return {
+      label: "Rejected",
+      variant: "REJECTED",
+      nextAction: "Request closed / declined",
+    };
+  }
+  if (status === "CANCELLED") {
+    return {
+      label: "Cancelled",
+      variant: "CANCELLED",
+      nextAction: "Request cancelled by user",
+    };
+  }
+
+  // PENDING state
+  if (reqType === "CLUB") {
+    if (advStatus === "PENDING_ADVISOR") {
+      return {
+        label: "Awaiting Advisor Review",
+        variant: "PENDING_ADVISOR",
+        nextAction: "Faculty advisor review required",
+      };
+    }
+    if (advStatus === "ENDORSED") {
+      return {
+        label: "Advisor Endorsed",
+        variant: "ENDORSED",
+        nextAction: "Administrator allocation pending",
+      };
+    }
+  }
+
+  return {
+    label: "Awaiting Triage",
+    variant: "PENDING",
+    nextAction: "Administrator allocation pending",
+  };
+}

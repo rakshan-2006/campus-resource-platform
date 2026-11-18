@@ -29,7 +29,17 @@ export async function POST(
     const assignedResourceId = parsed.assigned_resource_id ?? null;
 
     const bookingRes = await withUserContext(user!.id, "ADMIN", async (client) => {
+      // Call stored procedure sp_approve_request
+      // This executes FOR UPDATE row locking, re-checks fn_is_available, updates status, and inserts booking!
       await client.query("CALL sp_approve_request($1, $2, $3)", [requestId, user!.id, assignedResourceId]);
+
+      // Record review history
+      await client.query(
+        `INSERT INTO request_review_history (request_id, reviewer_user_id, action, comments, created_at)
+         VALUES ($1, $2, 'APPROVED_BY_ADMIN', 'Venue allocation confirmed by campus administrator', CURRENT_TIMESTAMP)`,
+        [requestId, user!.id]
+      );
+
       return client.query(
         `SELECT b.id, b.request_id, b.resource_id, r.code AS resource_code, r.name AS resource_name,
                 b.start_time, b.end_time, b.status

@@ -4,19 +4,22 @@
 import { SignJWT, jwtVerify } from "jose";
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
-import { User, UserRole } from "@/types";
+import { User, UserRole, VerificationStatus } from "@/types";
 import { sessionSecret } from "@/lib/session-config";
 
 const COOKIE_NAME = "campus_session";
 
 export interface SessionPayload {
-  sub: string; // user id as string
+  sub?: string; // user id as string
   id: number;
   email: string;
   name: string;
   role: UserRole;
-  department_id: number;
+  verification_status?: VerificationStatus;
+  department_id?: number | null;
   department_name?: string;
+  club_id?: number;
+  club_name?: string;
   exp?: number;
 }
 
@@ -99,8 +102,11 @@ export async function getSessionUser(): Promise<User | null> {
     email: payload.email,
     name: payload.name,
     role: payload.role,
+    verification_status: payload.verification_status || "APPROVED",
     department_id: payload.department_id,
     department_name: payload.department_name,
+    club_id: payload.club_id,
+    club_name: payload.club_name,
     created_at: new Date().toISOString(),
   };
 }

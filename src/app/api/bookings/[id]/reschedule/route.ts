@@ -37,7 +37,7 @@ export async function POST(
 
     const booking = bookingRes.rows[0];
 
-    if (user.role === "FACULTY" && booking.booked_by_user_id !== user.id) {
+    if (user.role !== "ADMIN" && booking.booked_by_user_id !== user.id) {
       return apiError(new Error("FORBIDDEN: You can only reschedule your own bookings"));
     }
 

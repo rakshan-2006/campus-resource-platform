@@ -74,18 +74,23 @@ export async function withTransaction<T>(
  */
 export async function withUserContext<T>(
   userId: number,
-  role: "ADMIN" | "FACULTY",
+  role: "ADMIN" | "FACULTY" | "CLUB",
   callback: (client: PoolClient) => Promise<T>
 ): Promise<T> {
   return withTransaction(async (client) => {
-    await client.query(role === "FACULTY" ? "SET LOCAL ROLE campus_faculty" : "SET LOCAL ROLE campus_admin");
+    const roleCmd = role === "FACULTY" 
+      ? "SET LOCAL ROLE campus_faculty" 
+      : role === "CLUB"
+      ? "SET LOCAL ROLE campus_club"
+      : "SET LOCAL ROLE campus_admin";
+    await client.query(roleCmd);
     await client.query("SELECT set_config('app.current_user_id', $1, true)", [String(userId)]);
     return callback(client);
   });
 }
 
 export function queryAsUser<T extends QueryResultRow = any>(
-  user: { id: number; role: "ADMIN" | "FACULTY" },
+  user: { id: number; role: "ADMIN" | "FACULTY" | "CLUB" },
   text: string,
   params?: unknown[],
 ): Promise<QueryResult<T>> {
