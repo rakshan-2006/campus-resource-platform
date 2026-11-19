@@ -519,6 +519,8 @@ export default function NewRequestPage() {
               <div className="space-y-3">
                 {recommendations.map((rec, index) => {
                   const isSelected = selectedResourceId === rec.resource_id;
+                  const totalExpected = (parseInt(capacity) || 0) + (isClub ? parseInt(expectedGuests) || 0 : 0);
+                  const isUnderCapacity = totalExpected > 0 && rec.capacity < totalExpected;
 
                   return (
                     <div
@@ -543,9 +545,16 @@ export default function NewRequestPage() {
                               <span className="font-mono text-xs font-bold text-primary">{rec.resource_code}</span>
                               <span className="font-semibold text-xs text-foreground">{rec.resource_name}</span>
                             </div>
-                            <span className="text-[11px] text-muted-foreground">
-                              {rec.location} • {rec.department_name}
-                            </span>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-[11px] text-muted-foreground">
+                                {rec.location} • {rec.department_name} • {rec.capacity} seats
+                              </span>
+                              {isUnderCapacity && (
+                                <span className="inline-flex items-center text-[10px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+                                  Max {rec.capacity} seats ({totalExpected} requested)
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
 
@@ -556,6 +565,37 @@ export default function NewRequestPage() {
                           <span className="text-[10px] text-muted-foreground font-mono">Match Score</span>
                         </div>
                       </div>
+
+                      {/* Under-capacity confirmation box */}
+                      {isSelected && isUnderCapacity && (
+                        <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-md text-xs text-amber-900 space-y-2">
+                          <div className="flex items-start gap-2">
+                            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                            <div>
+                              <p className="font-semibold text-slate-900">
+                                This {rec.resource_name} has a maximum capacity of {rec.capacity} seats (your requested attendance is {totalExpected}).
+                              </p>
+                              <p className="text-[11px] text-slate-600 mt-0.5">
+                                Do you want to proceed with this venue? You can adjust your attendance to {rec.capacity} to fit the hall or proceed with your current request.
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 pt-0.5">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const targetCap = isClub ? Math.max(1, rec.capacity - (parseInt(expectedGuests) || 0)) : rec.capacity;
+                                setCapacity(String(targetCap));
+                              }}
+                              className="px-2.5 py-1 text-xs font-semibold bg-amber-600 text-white rounded hover:bg-amber-700 transition shadow-sm"
+                            >
+                              Adjust attendance to {rec.capacity}
+                            </button>
+                            <span className="text-[11px] text-slate-600">or proceed with current attendance</span>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Score Breakdown Bars */}
                       <div className="mt-3 pt-3 border-t border-border grid grid-cols-2 gap-x-4 gap-y-2">

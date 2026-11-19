@@ -369,7 +369,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = pg_catalog, pg_temp;
 REVOKE EXECUTE ON FUNCTION fn_is_available(INT, TIMESTAMP, TIMESTAMP, INT) FROM PUBLIC;
--- END AVAILABILITY RULES
 
 -- 5.3 fn_recommend_resources
 -- Hard filters available resources by requested type and capacity, excludes conflicts/maintenance,
@@ -411,7 +410,7 @@ BEGIN
         FROM resource r
         JOIN department d ON r.department_id = d.id
         WHERE r.resource_type_id = p_type_id
-          AND r.capacity >= p_capacity
+          AND r.capacity >= CEIL(p_capacity * 0.85)
           AND fn_is_available(r.id, p_start, p_end) = TRUE
     ),
     required_facs AS (
@@ -473,8 +472,13 @@ BEGIN
     CROSS JOIN required_count rc
     CROSS JOIN LATERAL (
         SELECT 
-            -- Capacity score: 100 if exact match, gently scaled down if oversized to avoid wasted capacity
-            GREATEST(0.0, 100.0 - (((c.res_cap - p_capacity)::NUMERIC / NULLIF(p_capacity, 0)::NUMERIC) * 40.0)) AS c_score,
+            -- Capacity score: 100 if exact match, gently scaled down if oversized, or percentage accommodated if slightly undersized
+            CASE 
+                WHEN c.res_cap >= p_capacity THEN
+                    GREATEST(0.0, 100.0 - (((c.res_cap - p_capacity)::NUMERIC / NULLIF(p_capacity, 0)::NUMERIC) * 40.0))
+                ELSE
+                    GREATEST(0.0, (c.res_cap::NUMERIC / NULLIF(p_capacity, 0)::NUMERIC) * 100.0)
+            END AS c_score,
             -- Facilities score: proportion of required facilities satisfied (100 if none required)
             CASE 
                 WHEN rc.total_req = 0 THEN 100.0
@@ -490,6 +494,7 @@ BEGIN
     ORDER BY total_score DESC, c.res_cap ASC, c.res_id ASC;
 END;
 $$ LANGUAGE plpgsql STABLE;
+-- END AVAILABILITY RULES
 
 -- 5.4 sp_approve_request
 -- BEGIN ALLOCATION RULES
@@ -502,7 +507,7 @@ AS $$
         JOIN booking_request br ON br.id = p_request_id
         WHERE r.id = p_resource_id
           AND r.resource_type_id = br.resource_type_id
-          AND r.capacity >= br.expected_capacity
+          AND r.capacity >= CEIL(br.expected_capacity * 0.85)
           AND NOT EXISTS (
               SELECT 1 FROM resource_request_facility req
               LEFT JOIN resource_facility rf
