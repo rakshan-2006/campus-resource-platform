@@ -49,7 +49,25 @@ INSERT INTO resource (id, resource_type_id, department_id, code, name, capacity,
 (5, 3, 1, 'SEM-HALL-A', 'Sir C.V. Raman Seminar Hall', 120, 'Turing IT Complex, Floor 3', 'AVAILABLE'),
 (6, 4, 4, 'CONF-ROOM-1', 'Executive Boardroom', 25, 'Administrative Tower, Floor 4', 'AVAILABLE'),
 (7, 5, 4, 'AUD-CENTRAL', 'Campus Grand Auditorium', 450, 'Cultural Complex, Ground Floor', 'AVAILABLE'),
-(8, 2, 2, 'LAB-EC1', 'Shannon DSP & Embedded Lab', 30, 'Maxwell EC Block, Floor 1', 'AVAILABLE');
+(8, 2, 2, 'LAB-EC1', 'Shannon DSP & Embedded Lab', 30, 'Maxwell EC Block, Floor 1', 'AVAILABLE'),
+-- Additional Classrooms (Type 1)
+(9, 1, 1, 'LH-103', 'Smart Lecture Classroom 103', 50, 'Main Academic Block, Floor 2', 'AVAILABLE'),
+(10, 1, 2, 'LH-201', 'Electronics Tiered Classroom', 70, 'Maxwell EC Block, Floor 2', 'AVAILABLE'),
+(11, 1, 3, 'LH-301', 'Mechanical Design Amphitheater', 90, 'Newton Mechanical Block, Floor 1', 'AVAILABLE'),
+(12, 1, 1, 'LH-104', 'Interactive Studio Classroom', 40, 'Main Academic Block, Floor 2', 'AVAILABLE'),
+-- Additional Computer Labs (Type 2)
+(13, 2, 1, 'LAB-CS3', 'Turing AI & High-Performance Lab', 45, 'Turing IT Complex, Floor 3', 'AVAILABLE'),
+(14, 2, 2, 'LAB-EC2', 'Robotics & Embedded Systems Lab', 30, 'Maxwell EC Block, Floor 2', 'AVAILABLE'),
+-- Additional Seminar Halls (Type 3)
+(15, 3, 2, 'SEM-HALL-B', 'Homi Bhabha Science Seminar Hall', 150, 'Maxwell EC Block, Floor 3', 'AVAILABLE'),
+(16, 3, 3, 'SEM-HALL-C', 'Vikram Sarabhai Innovation Hall', 90, 'Newton Mechanical Block, Floor 2', 'AVAILABLE'),
+(17, 3, 1, 'SEM-HALL-D', 'APJ Abdul Kalam Memorial Hall', 180, 'Main Academic Block, Floor 3', 'AVAILABLE'),
+-- Additional Conference Rooms (Type 4)
+(18, 4, 4, 'CONF-ROOM-2', 'Deanery Strategy Council Room', 30, 'Administrative Tower, Floor 3', 'AVAILABLE'),
+(19, 4, 1, 'CONF-ROOM-3', 'CS Department Research Suite', 20, 'Turing IT Complex, Floor 4', 'AVAILABLE'),
+-- Additional Auditoriums (Type 5)
+(20, 5, 4, 'AUD-MINI', 'Netaji Subhash Indoor Amphitheater', 250, 'Cultural Complex, Floor 1', 'AVAILABLE'),
+(21, 5, 4, 'AUD-OPEN', 'Sir M. Visvesvaraya Memorial Auditorium', 350, 'Technology Hub, Ground Floor', 'AVAILABLE');
 
 -- 6. Resource Facilities (Junction table with positive quantities)
 INSERT INTO resource_facility (resource_id, facility_id, quantity) VALUES
@@ -85,7 +103,64 @@ INSERT INTO resource_facility (resource_id, facility_id, quantity) VALUES
 (7, 6, 1),
 -- LAB-EC1: Workstations (30), Projector (1)
 (8, 4, 30),
-(8, 1, 1);
+(8, 1, 1),
+-- LH-103: Projector (1), Smart Board (1), HVAC (1)
+(9, 1, 1),
+(9, 2, 1),
+(9, 6, 1),
+-- LH-201: Projector (1), HVAC (1)
+(10, 1, 1),
+(10, 6, 1),
+-- LH-301: Projector (1), Audio System (1), HVAC (1)
+(11, 1, 1),
+(11, 3, 1),
+(11, 6, 1),
+-- LH-104: Projector (1), Smart Board (1), HVAC (1)
+(12, 1, 1),
+(12, 2, 1),
+(12, 6, 1),
+-- LAB-CS3: Workstations (45), Projector (1), HVAC (1)
+(13, 4, 45),
+(13, 1, 1),
+(13, 6, 1),
+-- LAB-EC2: Workstations (30), Projector (1), HVAC (1)
+(14, 4, 30),
+(14, 1, 1),
+(14, 6, 1),
+-- SEM-HALL-B: Projector (2), Audio System (2), Video Conference (1), HVAC (1)
+(15, 1, 2),
+(15, 3, 2),
+(15, 5, 1),
+(15, 6, 1),
+-- SEM-HALL-C: Projector (1), Audio System (1), Smart Board (1), HVAC (1)
+(16, 1, 1),
+(16, 3, 1),
+(16, 2, 1),
+(16, 6, 1),
+-- SEM-HALL-D: Projector (2), Audio System (3), Video Conference (1), HVAC (1)
+(17, 1, 2),
+(17, 3, 3),
+(17, 5, 1),
+(17, 6, 1),
+-- CONF-ROOM-2: Projector (1), Video Conference (1), Audio System (1), HVAC (1)
+(18, 1, 1),
+(18, 5, 1),
+(18, 3, 1),
+(18, 6, 1),
+-- CONF-ROOM-3: Projector (1), Video Conference (1), Smart Board (1), HVAC (1)
+(19, 1, 1),
+(19, 5, 1),
+(19, 2, 1),
+(19, 6, 1),
+-- AUD-MINI: Projector (2), Audio System (3), HVAC (1)
+(20, 1, 2),
+(20, 3, 3),
+(20, 6, 1),
+-- AUD-OPEN: Projector (2), Audio System (4), Video Conference (1), HVAC (1)
+(21, 1, 2),
+(21, 3, 4),
+(21, 5, 1),
+(21, 6, 1);
 
 -- 7. Booking Requests
 -- Request 1: Approved request for LH-101

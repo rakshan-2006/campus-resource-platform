@@ -132,6 +132,65 @@ async function seedMongo() {
             "Tactile paving along main access path"
           ]
         }
+      },
+      {
+        pg_resource_id: 13, // LAB-CS3 (Turing AI & High-Performance Lab)
+        resource_type: "COMPUTER_LAB",
+        updated_at: now,
+        specifications: {
+          computer_count: 45,
+          cpu: "AMD Threadripper 7980X (64 cores / 128 threads)",
+          ram: "128 GB DDR5 ECC 5600MHz",
+          gpu: "NVIDIA RTX 6000 Ada Generation 48GB VRAM",
+          storage: "2 TB NVMe PCIe Gen5 SSD",
+          os: "Ubuntu 24.04 LTS AI Stack",
+          network_speed_mbps: 10000,
+          frameworks: ["PyTorch 2.5", "TensorFlow 2.18", "JAX", "CUDA 12.6", "Triton"],
+          ups_backup_minutes: 180
+        }
+      },
+      {
+        pg_resource_id: 15, // SEM-HALL-B (Homi Bhabha Science Seminar Hall)
+        resource_type: "SEMINAR_HALL",
+        updated_at: now,
+        specifications: {
+          seating_type: "Auditorium-grade high-comfort ergonomic fabric seats",
+          acoustics: "Armstrong acoustic paneling with bass traps",
+          video_conferencing: {
+            codec: "Polycom RealPresence Group 700",
+            cameras: "Triple 4K EagleEye Director tracking",
+            screens: "Laser phosphor projection 10,000 lumens"
+          },
+          microphones: {
+            wireless_handheld: 4,
+            wireless_lapel: 4,
+            ceiling_microphone_array: true
+          }
+        }
+      },
+      {
+        pg_resource_id: 18, // CONF-ROOM-2 (Deanery Strategy Council Room)
+        resource_type: "CONFERENCE_ROOM",
+        updated_at: now,
+        specifications: {
+          table_config: "U-shaped solid mahogany conference table with flush motorized popup modules",
+          display: "105-inch Ultra-wide 21:9 interactive collaboration board",
+          video_conferencing: "Microsoft Teams Rooms on Windows (Neat Bar Pro)",
+          sound: "Biamp Tesira DSP ceiling audio"
+        }
+      },
+      {
+        pg_resource_id: 21, // AUD-OPEN (Sir M. Visvesvaraya Memorial Auditorium)
+        resource_type: "AUDITORIUM",
+        updated_at: now,
+        specifications: {
+          seating_capacity: 350,
+          acoustics: "Custom curved solid wood diffusion arrays",
+          audio_system: "JBL VTX A8 Line Array System with B18 Subwoofers",
+          projection: "Christie Boxer 4K30 30,000 lumens 3DLP projector",
+          stage_lighting: "GrandMA3 lighting control desk with moving heads",
+          green_rooms: 3
+        }
       }
     ];
 
