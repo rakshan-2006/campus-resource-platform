@@ -25,7 +25,10 @@ import {
   ShieldCheck,
   Users,
   Clock,
-  ArrowLeft
+  ArrowLeft,
+  Info,
+  Cpu,
+  HardDrive
 } from "lucide-react";
 
 export default function NewRequestPage() {
@@ -58,6 +61,27 @@ export default function NewRequestPage() {
   const [loadingRecs, setLoadingRecs] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Specs inspection modal state
+  const [inspectingResource, setInspectingResource] = useState<any | null>(null);
+  const [loadingSpecs, setLoadingSpecs] = useState(false);
+  const [specsError, setSpecsError] = useState<string | null>(null);
+
+  const handleOpenSpecsModal = async (resourceId: number) => {
+    setLoadingSpecs(true);
+    setSpecsError(null);
+    setInspectingResource({ id: resourceId });
+    try {
+      const res = await fetch(`/api/resources/${resourceId}`);
+      if (!res.ok) throw new Error("Failed to load venue specifications");
+      const json = await res.json();
+      setInspectingResource(json.data);
+    } catch (err: any) {
+      setSpecsError(err.message);
+    } finally {
+      setLoadingSpecs(false);
+    }
+  };
 
   useEffect(() => {
     Promise.all([
@@ -632,6 +656,30 @@ export default function NewRequestPage() {
                           </div>
                         </div>
                       )}
+
+                      {/* Action Bar: Inspect Features + Selection Indicator */}
+                      <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenSpecsModal(rec.resource_id);
+                          }}
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 hover:text-blue-900 transition-colors"
+                        >
+                          <Info className="w-3.5 h-3.5 text-blue-600" />
+                          <span>Inspect Features &amp; Specifications</span>
+                        </button>
+                        <span className="text-[11px] font-medium text-slate-500">
+                          {isSelected ? (
+                            <span className="inline-flex items-center gap-1 text-emerald-700 font-semibold">
+                              <Check className="w-3.5 h-3.5 text-emerald-600" /> Selected Venue
+                            </span>
+                          ) : (
+                            <span className="text-slate-400">Click card to select</span>
+                          )}
+                        </span>
+                      </div>
                     </div>
                   );
                 })}
@@ -654,6 +702,197 @@ export default function NewRequestPage() {
           </div>
         </div>
       </div>
+
+      {/* Venue Features & Specifications Modal Dialog */}
+      {inspectingResource && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-white rounded-lg shadow-xl border border-slate-200 max-w-2xl w-full max-h-[88vh] flex flex-col overflow-hidden">
+            {/* Modal Header */}
+            <div className="p-4 sm:p-5 border-b border-slate-200 flex items-start justify-between bg-slate-50/50">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded border border-primary/20">
+                    {inspectingResource.code || `ID #${inspectingResource.id}`}
+                  </span>
+                  <h3 className="text-base font-bold text-slate-900">
+                    {inspectingResource.name || "Venue Specifications"}
+                  </h3>
+                  {inspectingResource.status && (
+                    <Badge status={inspectingResource.status} className="text-[10px] py-0 px-1.5" />
+                  )}
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  {inspectingResource.resource_type_name && `${inspectingResource.resource_type_name} • `}
+                  {inspectingResource.department_name && `${inspectingResource.department_name} • `}
+                  {inspectingResource.location} • {inspectingResource.capacity} seats
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setInspectingResource(null)}
+                className="text-slate-400 hover:text-slate-700 p-1 rounded-md transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-4 sm:p-5 overflow-y-auto space-y-5 text-xs text-slate-700">
+              {loadingSpecs ? (
+                <div className="py-12 text-center text-slate-500 font-mono animate-pulse space-y-2">
+                  <Cpu className="w-6 h-6 text-slate-400 mx-auto animate-spin" />
+                  <p>Loading PostgreSQL facilities and MongoDB polymorphic specifications...</p>
+                </div>
+              ) : specsError ? (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded text-rose-800">
+                  {specsError}
+                </div>
+              ) : (
+                <>
+                  {/* PostgreSQL Installed Facilities */}
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                      <Layers className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Installed Facilities &amp; Amenities (PostgreSQL)</span>
+                    </h4>
+                    {inspectingResource.facilities && inspectingResource.facilities.length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {inspectingResource.facilities.map((fac: any) => (
+                          <div
+                            key={fac.facility_id}
+                            className="p-2.5 bg-slate-50 border border-slate-200 rounded flex items-center justify-between"
+                          >
+                            <span className="font-medium text-slate-800">{fac.facility_name}</span>
+                            <span className="font-mono font-bold text-xs bg-white border border-slate-200 px-2 py-0.5 rounded text-blue-700">
+                              Qty: {fac.quantity}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-slate-500 italic">No special facilities recorded in catalog.</p>
+                    )}
+                  </div>
+
+                  {/* MongoDB Extended Profile */}
+                  <div className="border-t border-slate-200 pt-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                        <Cpu className="w-3.5 h-3.5 text-purple-600" />
+                        <span>Extended Technical Specifications (MongoDB)</span>
+                      </h4>
+                      <span className="text-[10px] font-mono text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                        campus_resource_profiles
+                      </span>
+                    </div>
+
+                    {!inspectingResource.profile?.specifications ? (
+                      <div className="p-4 bg-slate-50 border border-dashed border-slate-200 rounded text-center text-slate-500">
+                        <p className="font-medium text-slate-700">Standard Institutional Setup</p>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          Furnished with standard academic stepped seating, whiteboard, and campus network connectivity.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {/* Key-Value Specs Grid */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {Object.entries(inspectingResource.profile.specifications).map(([key, val]) => {
+                            if (key === "software" || typeof val === "object") return null;
+                            return (
+                              <div key={key} className="p-2 bg-slate-50 border border-slate-200 rounded">
+                                <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 block">
+                                  {key.replace(/_/g, " ")}
+                                </span>
+                                <span className="font-mono text-slate-900 font-medium">{String(val)}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {/* Software List */}
+                        {inspectingResource.profile.specifications.software && Array.isArray(inspectingResource.profile.specifications.software) && (
+                          <div className="p-3 bg-purple-50/50 border border-purple-200 rounded-md">
+                            <span className="text-xs font-bold text-purple-900 flex items-center gap-1.5 mb-2">
+                              <HardDrive className="w-3.5 h-3.5" />
+                              <span>Installed Software Stack ({inspectingResource.profile.specifications.software.length} packages)</span>
+                            </span>
+                            <div className="flex flex-wrap gap-1.5">
+                              {inspectingResource.profile.specifications.software.map((sw: string) => (
+                                <span
+                                  key={sw}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 bg-white border border-purple-200 rounded text-[11px] font-mono text-purple-800"
+                                >
+                                  <Check className="w-3 h-3 text-emerald-600" />
+                                  <span>{sw}</span>
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Stage / Video Conferencing Object Specs */}
+                        {inspectingResource.profile.specifications.stage && typeof inspectingResource.profile.specifications.stage === "object" && (
+                          <div className="p-3 bg-slate-50 border border-slate-200 rounded-md">
+                            <span className="text-xs font-bold text-slate-900 block mb-1.5">Stage &amp; Theatrical Rig</span>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px]">
+                              {Object.entries(inspectingResource.profile.specifications.stage).map(([k, v]) => (
+                                <div key={k} className="p-1.5 bg-white border border-slate-200 rounded">
+                                  <span className="text-[9px] text-slate-400 uppercase block">{k.replace(/_/g, " ")}</span>
+                                  <span className="font-mono font-medium text-slate-800">{String(v)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Video Conferencing Specs */}
+                        {inspectingResource.profile.specifications.video_conferencing && typeof inspectingResource.profile.specifications.video_conferencing === "object" && (
+                          <div className="p-3 bg-blue-50/50 border border-blue-200 rounded-md">
+                            <span className="text-xs font-bold text-blue-900 block mb-1.5">Video Conferencing Codec &amp; Audio</span>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                              {Object.entries(inspectingResource.profile.specifications.video_conferencing).map(([k, v]) => (
+                                <div key={k} className="p-1.5 bg-white border border-blue-200 rounded">
+                                  <span className="text-[9px] text-blue-500 uppercase block">{k.replace(/_/g, " ")}</span>
+                                  <span className="font-mono font-medium text-blue-900">{String(v)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setInspectingResource(null)}
+              >
+                Close
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => {
+                  setSelectedResourceId(inspectingResource.id);
+                  setInspectingResource(null);
+                }}
+                className="gap-1.5"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>Select This Venue &amp; Proceed</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
