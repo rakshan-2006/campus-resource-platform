@@ -54,6 +54,7 @@ export default function NewRequestPage() {
   // Recommendations state
   const [recommendations, setRecommendations] = useState<RecommendedResource[]>([]);
   const [selectedResourceId, setSelectedResourceId] = useState<number | null>(null);
+  const [hasSearched, setHasSearched] = useState(false);
   const [loadingRecs, setLoadingRecs] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -111,6 +112,7 @@ export default function NewRequestPage() {
   const handleComputeRecommendations = async () => {
     setError(null);
     setLoadingRecs(true);
+    setHasSearched(true);
     setRecommendations([]);
 
     const fullStart = `${date} ${startTime}`;
@@ -488,16 +490,11 @@ export default function NewRequestPage() {
         {/* Right Column: Ranked Recommendations (7 cols) */}
         <div className="lg:col-span-7 space-y-4">
           <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-200 pb-3">
-              <div>
-                <h2 className="text-sm font-bold text-slate-900">2. Ranked Venue Recommendations</h2>
-                <p className="text-[11px] text-slate-500">
-                  Evaluated using transparent capacity scoring, amenity compliance, and schedule availability.
-                </p>
-              </div>
-              <span className="text-[10px] font-mono text-slate-600 bg-slate-100 px-2.5 py-1 rounded border border-slate-200">
-                Cap 30% · Fac 30% · Avail 25% · Type 10%
-              </span>
+            <div className="border-b border-slate-200 pb-3">
+              <h2 className="text-sm font-bold text-slate-900">2. Ranked Venue Recommendations</h2>
+              <p className="text-[11px] text-slate-500">
+                Evaluated using capacity scoring, amenity compliance, and schedule availability.
+              </p>
             </div>
 
             {loadingRecs ? (
@@ -505,9 +502,19 @@ export default function NewRequestPage() {
                 Evaluating candidate capacities, checking schedule availability, and scoring amenities...
               </div>
             ) : recommendations.length === 0 ? (
-              <div className="p-10 text-center text-xs text-muted-foreground">
-                Click &ldquo;Search &amp; Recommend Venues&rdquo; to evaluate candidate rooms and view transparent suitability scores.
-              </div>
+              hasSearched ? (
+                <div className="p-8 text-center bg-slate-50 border border-dashed border-slate-300 rounded-lg space-y-2 my-2">
+                  <AlertCircle className="w-8 h-8 text-amber-500 mx-auto" />
+                  <h3 className="text-sm font-semibold text-slate-900">No Matching Venues Found</h3>
+                  <p className="text-xs text-slate-600 max-w-sm mx-auto">
+                    No venues of this category match your requested capacity, operating time window, or required facilities. Try adjusting the expected attendance or selecting a different venue category.
+                  </p>
+                </div>
+              ) : (
+                <div className="p-10 text-center text-xs text-muted-foreground">
+                  Click &ldquo;Search &amp; Recommend Venues&rdquo; to evaluate candidate rooms and view suitability scores.
+                </div>
+              )
             ) : (
               <div className="space-y-3">
                 {recommendations.map((rec, index) => {
@@ -552,10 +559,10 @@ export default function NewRequestPage() {
 
                       {/* Score Breakdown Bars */}
                       <div className="mt-3 pt-3 border-t border-border grid grid-cols-2 gap-x-4 gap-y-2">
-                        <ScoreBar label="Capacity Fit" score={Number(rec.capacity_score) || 0} weight="30%" />
-                        <ScoreBar label="Facilities Match" score={Number(rec.facilities_score) || 0} weight="30%" />
-                        <ScoreBar label="Availability" score={Number(rec.availability_score) || 0} weight="25%" />
-                        <ScoreBar label="Type Fit" score={Number(rec.type_score) || 0} weight="10%" />
+                        <ScoreBar label="Capacity Fit" score={Number(rec.capacity_score) || 0} />
+                        <ScoreBar label="Facilities Match" score={Number(rec.facilities_score) || 0} />
+                        <ScoreBar label="Availability" score={Number(rec.availability_score) || 0} />
+                        <ScoreBar label="Type Fit" score={Number(rec.type_score) || 0} />
                       </div>
 
                       {/* Required vs Available Facility Quantities */}
