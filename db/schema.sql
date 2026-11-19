@@ -429,7 +429,7 @@ BEGIN
             COALESCE(
                 jsonb_agg(
                     jsonb_build_object(
-                        'facility_id', rf.facility_id,
+                        'facility_id', rf_req.facility_id,
                         'facility_name', f.name,
                         'required_qty', rf_req.min_qty,
                         'available_qty', COALESCE(rf.quantity, 0),

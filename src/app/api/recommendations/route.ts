@@ -48,6 +48,12 @@ export async function POST(req: NextRequest) {
       facilities_score: Number(row.facilities_score) || 0,
       availability_score: Number(row.availability_score) || 0,
       type_score: Number(row.type_score) || 0,
+      facility_breakdown: Array.isArray(row.facility_breakdown)
+        ? row.facility_breakdown.map((fac: any, idx: number) => ({
+            ...fac,
+            facility_id: fac.facility_id ?? idx + 1,
+          }))
+        : [],
     }));
 
     return apiSuccess(formattedRows);

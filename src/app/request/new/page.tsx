@@ -565,9 +565,9 @@ export default function NewRequestPage() {
                             Facility Compliance:
                           </span>
                           <div className="flex flex-wrap gap-1.5">
-                            {rec.facility_breakdown.map((fac) => (
+                            {rec.facility_breakdown.map((fac, facIdx) => (
                               <span
-                                key={fac.facility_id}
+                                key={fac.facility_id ?? `${fac.facility_name || 'fac'}-${facIdx}`}
                                 className={`inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 rounded border ${
                                   fac.satisfied
                                     ? "bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900"
