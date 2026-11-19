@@ -11,6 +11,7 @@
     "db:migrate": "tsx scripts/db-migrate.ts",
     "db:migrate:club": "tsx scripts/run-club-migration.ts",
     "db:seed": "tsx scripts/db-seed.ts",
+    "db:ui": "wsl -u postgres pgweb --url \"postgres://postgres:postgres@127.0.0.1:5432/campus_db?sslmode=disable\" --bind 0.0.0.0 --listen 8081 --skip-open",
     "mongo:init": "node db/mongo-init.js",
     "mongo:seed": "node db/mongo-seed.js",
     "db:setup": "npm run db:migrate && npm run db:seed && npm run mongo:init && npm run mongo:seed",

@@ -41,7 +41,16 @@ export async function POST(req: NextRequest) {
       ]
     );
 
-    return apiSuccess(res.rows);
+    const formattedRows = res.rows.map((row: any) => ({
+      ...row,
+      total_score: Number(row.total_score) || 0,
+      capacity_score: Number(row.capacity_score) || 0,
+      facilities_score: Number(row.facilities_score) || 0,
+      availability_score: Number(row.availability_score) || 0,
+      type_score: Number(row.type_score) || 0,
+    }));
+
+    return apiSuccess(formattedRows);
   } catch (error) {
     return apiError(error);
   }

@@ -544,7 +544,7 @@ export default function NewRequestPage() {
 
                         <div className="text-right">
                           <div className="text-sm font-bold font-mono text-foreground">
-                            {rec.total_score.toFixed(1)}%
+                            {(Number(rec.total_score) || 0).toFixed(1)}%
                           </div>
                           <span className="text-[10px] text-muted-foreground font-mono">Match Score</span>
                         </div>
@@ -552,10 +552,10 @@ export default function NewRequestPage() {
 
                       {/* Score Breakdown Bars */}
                       <div className="mt-3 pt-3 border-t border-border grid grid-cols-2 gap-x-4 gap-y-2">
-                        <ScoreBar label="Capacity Fit" score={rec.capacity_score} weight="30%" />
-                        <ScoreBar label="Facilities Match" score={rec.facilities_score} weight="30%" />
-                        <ScoreBar label="Availability" score={rec.availability_score} weight="25%" />
-                        <ScoreBar label="Type Fit" score={rec.type_score} weight="10%" />
+                        <ScoreBar label="Capacity Fit" score={Number(rec.capacity_score) || 0} weight="30%" />
+                        <ScoreBar label="Facilities Match" score={Number(rec.facilities_score) || 0} weight="30%" />
+                        <ScoreBar label="Availability" score={Number(rec.availability_score) || 0} weight="25%" />
+                        <ScoreBar label="Type Fit" score={Number(rec.type_score) || 0} weight="10%" />
                       </div>
 
                       {/* Required vs Available Facility Quantities */}

@@ -166,15 +166,20 @@ BEGIN
     IF v_target_resource_id IS NULL THEN
         SELECT r.id INTO v_target_resource_id
         FROM resource r
-        WHERE r.resource_type_id = v_req.resource_type_id
-          AND r.capacity >= v_req.expected_capacity
+        WHERE fn_resource_meets_request(r.id, v_req.id)
           AND fn_is_available(r.id, v_req.start_time, v_req.end_time) = TRUE
-        ORDER BY r.capacity ASC
+        ORDER BY r.capacity ASC, r.id ASC
         LIMIT 1;
     END IF;
 
     IF v_target_resource_id IS NULL THEN
         RAISE EXCEPTION 'NO_AVAILABLE_RESOURCE: No suitable resource available for request %', p_request_id;
+    END IF;
+
+    -- Serialize approvals competing for this resource and validate explicit assignments too.
+    PERFORM 1 FROM resource WHERE id = v_target_resource_id FOR UPDATE;
+    IF NOT fn_resource_meets_request(v_target_resource_id, v_req.id) THEN
+        RAISE EXCEPTION 'RESOURCE_CONFLICT: Resource % does not meet the requested type, capacity, or facility quantities', v_target_resource_id;
     END IF;
 
     -- 4. Re-check availability under transaction lock

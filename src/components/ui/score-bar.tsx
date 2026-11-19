@@ -15,7 +15,8 @@ export const ScoreBar: React.FC<ScoreBarProps> = ({
   maxScore = 100,
   className = "",
 }) => {
-  const percentage = Math.min(100, Math.max(0, (score / maxScore) * 100));
+  const numScore = Number(score) || 0;
+  const percentage = Math.min(100, Math.max(0, (numScore / maxScore) * 100));
 
   const getColor = (pct: number) => {
     if (pct >= 85) return "bg-emerald-600";
@@ -30,7 +31,7 @@ export const ScoreBar: React.FC<ScoreBarProps> = ({
         <span className="font-medium">
           {label} {weight && <span className="text-slate-500 font-normal">({weight})</span>}
         </span>
-        <span className="font-mono font-semibold">{score.toFixed(1)}%</span>
+        <span className="font-mono font-semibold">{numScore.toFixed(1)}%</span>
       </div>
       <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
         <div
