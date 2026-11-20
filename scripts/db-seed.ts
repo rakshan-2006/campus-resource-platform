@@ -20,9 +20,18 @@ async function runSeed() {
     console.log(`Reading seed data from ${seedPath}...`);
     const sql = fs.readFileSync(seedPath, "utf-8");
 
-    console.log("Executing seed SQL...");
+    console.log("Executing base seed SQL...");
     await client.query(sql);
-    console.log("✓ PostgreSQL seed completed successfully.");
+    console.log("✓ PostgreSQL base seed completed successfully.");
+
+    const clubSeedPath = path.join(process.cwd(), "db", "seed-clubs.sql");
+    if (fs.existsSync(clubSeedPath)) {
+      console.log(`Reading club seed data from ${clubSeedPath}...`);
+      const clubSql = fs.readFileSync(clubSeedPath, "utf-8");
+      console.log("Executing club seed SQL...");
+      await client.query(clubSql);
+      console.log("✓ PostgreSQL club demo accounts & profiles seeded successfully.");
+    }
   } catch (error) {
     console.error("Seed execution failed:", error);
     process.exit(1);
