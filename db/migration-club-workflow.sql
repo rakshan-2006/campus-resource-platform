@@ -280,4 +280,7 @@ WHERE br.status = 'PENDING'
 GROUP BY br.id, u.id, u.name, u.email, u.role, d.name, rt.name, r_pref.name, cp.club_name
 ORDER BY br.created_at ASC;
 
+-- Ensure campus_admin retains SELECT access to the recreated view
+GRANT SELECT ON v_pending_requests TO campus_admin;
+
 COMMIT;
