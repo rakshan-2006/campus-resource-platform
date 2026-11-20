@@ -140,63 +140,165 @@ ON CONFLICT (id) DO UPDATE SET
     status = EXCLUDED.status,
     faculty_user_id = EXCLUDED.faculty_user_id;
 
--- 5. Club Booking Requests
--- Request 201: ACM Student Chapter - Pending Advisor Review (for Dr. Grace Hopper's inbox)
+-- 5. Club Booking Requests & Reviews Demo Data
+-- Clean any prior seed records
+DELETE FROM booking WHERE id IN (10, 11);
+DELETE FROM request_review_history WHERE request_id IN (201, 202, 203, 204, 205);
+DELETE FROM resource_request_facility WHERE request_id IN (201, 202, 203, 204, 205);
+DELETE FROM booking_request WHERE id IN (201, 202, 203, 204, 205);
+
+-- ----------------------------------------------------------------------------
+-- CLUB 1: ACM Student Chapter (Advised by Dr. Grace Hopper)
+-- ----------------------------------------------------------------------------
+
+-- Request 201: Awaiting Faculty Advisor Endorsement (Shows in Dr. Grace Hopper's Inbox!)
 INSERT INTO booking_request (
     id, user_id, resource_type_id, preferred_resource_id, title, description,
     start_time, end_time, expected_capacity, status, request_type, club_id,
     advisor_review_status, event_type, expected_guests, equipment_notes, created_at, updated_at
 ) VALUES (
     201, 10, 3, 5, 'HackCampus 2027: 24-Hour Code Sprint',
-    'Flagship annual campus hackathon featuring 30 teams building AI-driven societal tools.',
-    '2027-04-10 09:00:00', '2027-04-10 21:00:00', 100, 'PENDING', 'CLUB', 1,
-    'PENDING_ADVISOR', 'Hackathon', 'External industry mentors from Google and Red Hat',
-    'High-power extension boards and gigabit network drops required',
+    'Flagship annual campus hackathon featuring 25 student teams building AI solutions for community logistics and accessibility.',
+    CURRENT_DATE + INTERVAL '7 days' + TIME '09:00:00',
+    CURRENT_DATE + INTERVAL '7 days' + TIME '21:00:00',
+    100, 'PENDING', 'CLUB', 1,
+    'PENDING_ADVISOR', 'Hackathon', '15 Industry mentors from Google Cloud & Red Hat',
+    'High-power distribution strips and gigabit network drops required.',
     CURRENT_TIMESTAMP - INTERVAL '1 day', CURRENT_TIMESTAMP - INTERVAL '1 day'
-)
-ON CONFLICT (id) DO UPDATE SET
-    status = EXCLUDED.status,
-    advisor_review_status = EXCLUDED.advisor_review_status;
+);
 
 INSERT INTO resource_request_facility (request_id, facility_id, min_quantity)
-VALUES (201, 1, 1), (201, 3, 1)
-ON CONFLICT DO NOTHING;
+VALUES (201, 1, 1), (201, 3, 1);
 
-INSERT INTO request_review_history (request_id, reviewer_user_id, action, comments)
-VALUES (201, 10, 'SUBMITTED', 'Event proposal submitted by club president for faculty advisor review.')
-ON CONFLICT DO NOTHING;
+INSERT INTO request_review_history (request_id, reviewer_user_id, action, comments, created_at)
+VALUES (201, 10, 'SUBMITTED', 'Event proposal submitted by club president for faculty advisor review.', CURRENT_TIMESTAMP - INTERVAL '1 day');
 
--- Request 202: Robotics Society - Endorsed by Dr. Claude Shannon (Ready for Admin Allocation!)
+-- Request 202: Confirmed & Allocated Venue (Shows under Upcoming Bookings!)
 INSERT INTO booking_request (
     id, user_id, resource_type_id, preferred_resource_id, title, description,
     start_time, end_time, expected_capacity, status, request_type, club_id,
     advisor_review_status, event_type, expected_guests, equipment_notes, created_at, updated_at
 ) VALUES (
-    202, 11, 5, 7, 'Autonomous Drone Flight & AI Vision Expo',
-    'Indoor demonstration of micro-quadcopters with optical flow and obstacle avoidance.',
-    '2027-04-15 14:00:00', '2027-04-15 17:00:00', 120, 'PENDING', 'CLUB', 2,
-    'ENDORSED', 'Exhibition', 'Campus faculty and student public audience',
-    'Safety net barrier and protective perimeter cones',
+    202, 10, 1, 1, 'Competitive Programming Spring Bootcamp',
+    'Hands-on problem-solving intensive covering dynamic programming, graph theory, and algorithmic complexity for ICPC aspirants.',
+    CURRENT_DATE + INTERVAL '3 days' + TIME '14:00:00',
+    CURRENT_DATE + INTERVAL '3 days' + TIME '17:00:00',
+    50, 'APPROVED', 'CLUB', 1,
+    'ENDORSED', 'Technical Workshop', 'None',
+    'HDMI wireless clicker and audio lapel mic.',
     CURRENT_TIMESTAMP - INTERVAL '3 days', CURRENT_TIMESTAMP - INTERVAL '1 day'
-)
-ON CONFLICT (id) DO UPDATE SET
-    status = EXCLUDED.status,
-    advisor_review_status = EXCLUDED.advisor_review_status;
+);
 
 INSERT INTO resource_request_facility (request_id, facility_id, min_quantity)
-VALUES (202, 1, 1), (202, 3, 1)
-ON CONFLICT DO NOTHING;
+VALUES (202, 1, 1);
 
-INSERT INTO request_review_history (request_id, reviewer_user_id, action, comments)
+INSERT INTO booking (id, request_id, resource_id, booked_by_user_id, start_time, end_time, status, created_at, updated_at)
+VALUES (
+    10, 202, 1, 10,
+    CURRENT_DATE + INTERVAL '3 days' + TIME '14:00:00',
+    CURRENT_DATE + INTERVAL '3 days' + TIME '17:00:00',
+    'CONFIRMED',
+    CURRENT_TIMESTAMP - INTERVAL '1 day', CURRENT_TIMESTAMP - INTERVAL '1 day'
+);
+
+INSERT INTO request_review_history (request_id, reviewer_user_id, action, comments, created_at)
 VALUES 
-(202, 11, 'SUBMITTED', 'Initial request submitted by Robotics Society.'),
-(202, 3, 'ENDORSED', 'Strongly endorsed. Flight enclosure and emergency stop mechanics reviewed and validated.')
-ON CONFLICT DO NOTHING;
+(202, 10, 'SUBMITTED', 'Bootcamp proposal submitted by ACM Student Chapter.', CURRENT_TIMESTAMP - INTERVAL '3 days'),
+(202, 2, 'ENDORSED', 'Strongly endorsed. Curriculum reviewed and aligned with competitive programming training.', CURRENT_TIMESTAMP - INTERVAL '2 days'),
+(202, 1, 'APPROVED_BY_ADMIN', 'Lecture Hall 101 allocated and reservation confirmed with AV support.', CURRENT_TIMESTAMP - INTERVAL '1 day');
+
+-- Request 203: Returned / Rejected with Feedback (Shows Rejection & Feedback Modal!)
+INSERT INTO booking_request (
+    id, user_id, resource_type_id, preferred_resource_id, title, description,
+    start_time, end_time, expected_capacity, status, request_type, club_id,
+    advisor_review_status, event_type, expected_guests, equipment_notes, rejection_reason, created_at, updated_at
+) VALUES (
+    203, 10, 2, 3, 'Overnight LAN Gaming Tournament',
+    'Inter-hostel recreational esports tournament running through Saturday night.',
+    CURRENT_DATE + INTERVAL '10 days' + TIME '22:00:00',
+    CURRENT_DATE + INTERVAL '11 days' + TIME '06:00:00',
+    35, 'REJECTED', 'CLUB', 1,
+    'REJECTED', 'Gaming Tournament', 'Inter-hostel participants',
+    'High bandwidth network drops',
+    'Overnight recreational laboratory reservations are prohibited under campus safety bylaws without Dean authorization.',
+    CURRENT_TIMESTAMP - INTERVAL '4 days', CURRENT_TIMESTAMP - INTERVAL '3 days'
+);
+
+INSERT INTO resource_request_facility (request_id, facility_id, min_quantity)
+VALUES (203, 4, 1);
+
+INSERT INTO request_review_history (request_id, reviewer_user_id, action, comments, created_at)
+VALUES 
+(203, 10, 'SUBMITTED', 'Club event proposal submitted for lab overnight reservation.', CURRENT_TIMESTAMP - INTERVAL '4 days'),
+(203, 2, 'REJECTED_BY_ADVISOR', 'Overnight recreational laboratory reservations are prohibited under campus safety bylaws without Dean authorization. Please reschedule for daytime in student activity center.', CURRENT_TIMESTAMP - INTERVAL '3 days');
+
+-- ----------------------------------------------------------------------------
+-- CLUB 2: Robotics & Automation Society (Advised by Dr. Claude Shannon)
+-- ----------------------------------------------------------------------------
+
+-- Request 204: Endorsed by Advisor, Awaiting Admin Allocation (Shows in Admin Requests!)
+INSERT INTO booking_request (
+    id, user_id, resource_type_id, preferred_resource_id, title, description,
+    start_time, end_time, expected_capacity, status, request_type, club_id,
+    advisor_review_status, event_type, expected_guests, equipment_notes, created_at, updated_at
+) VALUES (
+    204, 11, 5, 21, 'Autonomous Drone Flight & AI Vision Expo',
+    'Indoor demonstration of micro-quadcopters with optical flow localization, computer vision, and autonomous obstacle avoidance.',
+    CURRENT_DATE + INTERVAL '6 days' + TIME '14:00:00',
+    CURRENT_DATE + INTERVAL '6 days' + TIME '17:00:00',
+    120, 'PENDING', 'CLUB', 2,
+    'ENDORSED', 'Technical Exhibition', '20 Faculty members and visiting robotics researchers',
+    'Safety net barrier and protective perimeter cones.',
+    CURRENT_TIMESTAMP - INTERVAL '2 days', CURRENT_TIMESTAMP - INTERVAL '1 day'
+);
+
+INSERT INTO resource_request_facility (request_id, facility_id, min_quantity)
+VALUES (204, 1, 1), (204, 3, 1);
+
+INSERT INTO request_review_history (request_id, reviewer_user_id, action, comments, created_at)
+VALUES 
+(204, 11, 'SUBMITTED', 'Proposal submitted by Robotics Society president.', CURRENT_TIMESTAMP - INTERVAL '2 days'),
+(204, 3, 'ENDORSED', 'Strongly endorsed. Safety enclosure net and remote emergency-stop cutoff protocols inspected and validated.', CURRENT_TIMESTAMP - INTERVAL '1 day');
+
+-- Request 205: Confirmed & Allocated Venue (Shows under Upcoming Bookings!)
+INSERT INTO booking_request (
+    id, user_id, resource_type_id, preferred_resource_id, title, description,
+    start_time, end_time, expected_capacity, status, request_type, club_id,
+    advisor_review_status, event_type, expected_guests, equipment_notes, created_at, updated_at
+) VALUES (
+    205, 11, 2, 7, 'Hands-on Micro-controller & ROS2 Robotics Lab',
+    'Practical lab session programming Raspberry Pi and STM32 boards running Robot Operating System (ROS2).',
+    CURRENT_DATE + INTERVAL '4 days' + TIME '10:00:00',
+    CURRENT_DATE + INTERVAL '4 days' + TIME '13:00:00',
+    28, 'APPROVED', 'CLUB', 2,
+    'ENDORSED', 'Hands-on Lab', 'None',
+    'Soldering stations, DC power supplies, and oscilloscopes.',
+    CURRENT_TIMESTAMP - INTERVAL '5 days', CURRENT_TIMESTAMP - INTERVAL '2 days'
+);
+
+INSERT INTO resource_request_facility (request_id, facility_id, min_quantity)
+VALUES (205, 1, 1), (205, 4, 1);
+
+INSERT INTO booking (id, request_id, resource_id, booked_by_user_id, start_time, end_time, status, created_at, updated_at)
+VALUES (
+    11, 205, 7, 11,
+    CURRENT_DATE + INTERVAL '4 days' + TIME '10:00:00',
+    CURRENT_DATE + INTERVAL '4 days' + TIME '13:00:00',
+    'CONFIRMED',
+    CURRENT_TIMESTAMP - INTERVAL '2 days', CURRENT_TIMESTAMP - INTERVAL '2 days'
+);
+
+INSERT INTO request_review_history (request_id, reviewer_user_id, action, comments, created_at)
+VALUES 
+(205, 11, 'SUBMITTED', 'Lab proposal submitted by Robotics Society.', CURRENT_TIMESTAMP - INTERVAL '5 days'),
+(205, 3, 'ENDORSED', 'Hardware kits, anti-static grounding, and lab ventilation safety confirmed. Endorsed.', CURRENT_TIMESTAMP - INTERVAL '4 days'),
+(205, 1, 'APPROVED_BY_ADMIN', 'Shannon DSP & Embedded Lab allocated with full workstation support.', CURRENT_TIMESTAMP - INTERVAL '2 days');
 
 -- Update sequences
 SELECT setval('users_id_seq', (SELECT GREATEST(MAX(id), 20) FROM users));
 SELECT setval('club_profile_id_seq', (SELECT GREATEST(MAX(id), 10) FROM club_profile));
 SELECT setval('club_advisor_id_seq', (SELECT GREATEST(MAX(id), 10) FROM club_advisor));
 SELECT setval('booking_request_id_seq', (SELECT GREATEST(MAX(id), 250) FROM booking_request));
+SELECT setval('booking_id_seq', (SELECT GREATEST(MAX(id), 20) FROM booking));
 
 COMMIT;
